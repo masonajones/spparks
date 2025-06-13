@@ -44,7 +44,7 @@ class AppAdditiveThermal : public AppPotts {
   virtual void site_event_rejection(int, class RandomFast *);
  	virtual void nucleation_particle_flipper(int, int,class RandomFast *);
  	virtual void mushy_phase(int, class RandomFast *);
-	virtual void nucleation_spins(class RandomFast *);
+	virtual void nucleation_spins();
  
   virtual void input_app(char *, int, char **);
 	virtual void app_update();

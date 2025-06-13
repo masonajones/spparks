@@ -814,19 +814,15 @@ void AppAdditiveThermal::app_update()
             if(check_alignment) { // Pretty sure this doesn't need an if statement
               for(int j = 0; j < check_alignment; j++) {
                 T[i] = boundary_temp;
-                //T_old[i] = boundary_temp;
                 i++;
               }
             }
             for (; i + 4 < nlocal_zstop; i += 4) { // changed from nlocal
               _mm256_stream_pd(&T[i], T0_vec);
-              //_mm256_stream_pd(&T_old[i], T0_vec);
             }
             for (; i < nlocal_zstop; i++) {
                T[i] = boundary_temp;
-               //T_old[i] = boundary_temp; // T becomes T_old before next loop, should be way to skip this
             }
-            //comm->all(); // Pretty sure this is useless, every process should have reset any temps it can see, nothing else changes here
             return;
         }
     }
@@ -855,7 +851,7 @@ void AppAdditiveThermal::app_update()
       comm->all(); // only really need to comm activeFlag
     }
 
-    // local_finitedifference();
+    // local_finitedifference(); // Someday: single function that updates all temperatures
     
     for (int i=i_z2; i<nlocal_zstop; i++) {
         //If below melt spot, run finite difference
@@ -1101,6 +1097,8 @@ void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomF
     static uint8_t neigh_shells [ ] = {4,10,12,15,21,13, 9,16,3,22,14,11,20,5,1,24,7,18, 0,25,23,2,6,19,17,8};
     int flipped = 0;
     
+
+    // NOTE: I MIGHT HAVE BROKEN THIS, NEED TO DOUBLE CHECK ORIGINAL LOGIC
     //Its hard to go through shells iteravely if the number of neighbors isn't the full 26.
     //Check if this is the case and just loop through the neihgbor list if so
     if(numneigh[i] == 26) {
@@ -1116,7 +1114,7 @@ void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomF
             }
         }
     }
-    else {        
+    else { // Not sure when this happens in practice. If we can force it not to then we can remove this if/else.
         for(int j = 0; j < numneigh[i]; j++) {
             int neighid = neighbor[i][j];
             if(activeFlag[neighid] == 2) {
@@ -1161,29 +1159,13 @@ void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomF
    than 1 (which we should avoid), allow all spins to nucleate. If not, call a random number
    between zero and one. If the number is less than the fraction, make true. If not, make false.
 ------------------------------------------------------------------------- */
-void AppAdditiveThermal::nucleation_spins(RandomFast *random) {
+void AppAdditiveThermal::nucleation_spins() {
     double nucleationFraction = dx * dx * dx * No;
-    
+    nucleationCutoff = nucleationFraction * nspins;
     //Make all spins nucleation sites. Should avoid this.
     if(nucleationFraction >= 1.0) {
         fprintf(screen,"Nucleation fraction (%f) is greater than 1. Decrease No or increase mesh resolution.\n", nucleationFraction);
-//        for (int i = 0; i < nspins; i++) {
-//            nucleationFlags[i] = 1;
-//        }
     }
-    //Do a random number test and allow the spin to nucleate if less than
-//    else {
-//        fprintf(screen,"Nucleation Fraction is %f \n", nucleationFraction);
-//        for (int i = 0; i < nspins; i++) {
-//            if(random->uniform() <= nucleationFraction) {
-//                nucleationFlags[i] = 1;
-//            }
-//            else {
-//                nucleationFlags[i] = 0;
-//            }
-//        }
-//    }   
-    nucleationCutoff = nucleationFraction * nspins;
 }
 
 /* ----------------------------------------------------------------------
@@ -1267,25 +1249,13 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
     }
   }
   
-    //Find the highest temperature in the local array and compare with others
+  // Highest temp at init will always be init condition
   tempMax = boundary_temp;
-  //timer->stamp(TIME_APP);
-  //MPI_Allreduce(&tempMax,&tempMaxAll,1,MPI_DOUBLE,MPI_MAX,world);
-  //timer->stamp(TIME_COMM);
   //Using the global maximum temperature, compute our smallest timestep 
   dtMC = compute_timeMin(tempMaxAll);
   timer->stamp(TIME_APP);
   //This while loop is for the entire simulation run time! (stoptime = "run stoptime")
-  while (!done) {
-  
-//      //Find the highest temperature in the local array and compare with others
-//      tempMax = compute_tempMax();
-//      timer->stamp(TIME_APP);
-//      MPI_Allreduce(&tempMax,&tempMaxAll,1,MPI_DOUBLE,MPI_MAX,world);
-//      timer->stamp(TIME_COMM);
-//      //Using the global maximum temperature, compute our smallest timestep 
-//      dtMC = compute_timeMin(tempMaxAll);
-      
+  while (!done) {  
       FDElapsed = 0;
       
       for(int i = i_z2; i < nlocal_zstop; i++) {
@@ -1294,27 +1264,28 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
       mobMax = 0;
 
       while(dtMC >= FDElapsed) {
+        // Swap the T and T_old arrays, significantly cheaper than previous value transfer
         pointer_swap = T_old;
         T_old = T;
         T = pointer_swap;
 
-        //Update temperatures and phases
+        //Update temperatures and phases, calculate tempMaxAll
         app_update();
 
         //Using the global maximum temperature, compute our smallest timestep
         //Only update dtMC if it is smaller (higher temperature)
         //Basing MC calculation off of the highest temp observed in time_step
         // this can technically be reduced by computing the mob max to test with, then using inverse to caclulate dtMC if true
-        if (dtMC > compute_timeMin(tempMaxAll) || mobMax < 1e-8) {
-          dtMC = compute_timeMin(tempMaxAll);
+        double dtMC_test = compute_timeMin(tempMaxAll);
+        if (dtMC > dtMC_test || mobMax < 1e-8) {
+          dtMC = dtMC_test;
           //If new mobMax is larger, use it. This is tested by the enclosing if statement
           mobMax = exp(-Q/(R*tempMaxAll));
         }
 
         //Add to running mobility values at each site. Multiply mobility by timestep_size
         //which makes the integral of a constant function
-        for(int i = i_z2; i < nlocal_zstop; i++) { //nlocal_zstop
-          //if(xyz[i][2] > floor(z_meltspot)) break;
+        for(int i = i_z2; i < nlocal_zstop; i++) { 
           if(activeFlag[i] != SOLID) continue;
           //Also check if we're just solidified and should be "relaxed"
           if(SolidD[i] < 0 && SolidD[i] > -nsmooth -1)    {
@@ -1329,7 +1300,7 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
             nucleation_particle_flipper(i, round(nucVolume*div_dxcubed), ranapp);
             SolidD[i] = -nsmooth - 3;
           }
-          MobilityOut[i] += time_step * compute_mobility(i);//,ranapp);
+          MobilityOut[i] += time_step * compute_mobility(i);
         }
         FDElapsed += time_step;
         time += time_step;
@@ -1424,16 +1395,17 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
    timestep. Let's compute timestep after and just return highest temperature
  ------------------------------------------------------------------------- */
 double AppAdditiveThermal::compute_tempMax() {
+  // Currently only called after pointers have been swapped, but before finite difference -> use T_old to get most recent temperature
+
 	tempMax = 0;
   for(int i = nlocal_zstop; i >= i_ztop; i--) { 
       if(activeFlag[i] == POWDER) continue;
       //If max temp is above liquidus, just make it liquidus and return
-      if(T[i] > Tl) {
+      if(T_old[i] > Tl) {
             tempMax = Tl;
             return tempMax;
 	    }
-	    //tempMax = MAX(tempMax, T_old[i]); 
-      tempMax = MAX(tempMax, T[i]); 
+      tempMax = MAX(tempMax, T_old[i]);  
 	}
 	return tempMax;
 }
