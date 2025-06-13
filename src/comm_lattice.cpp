@@ -145,11 +145,12 @@ void CommLattice::all()
 void CommLattice::all_reverse()
 {
   if (delreverse == 0) return;
-
+  fprintf(screen, "starting reverse swap");
   if (site_only) perform_swap_site(reverseswap);
   else if (ndouble == 0) perform_swap_int(reverseswap);
   else if (ninteger == 0) perform_swap_double(reverseswap);
   else perform_swap_general(reverseswap);
+  fprintf(screen, "finished reverse swap");
 }
 
 /* ----------------------------------------------------------------------
@@ -241,13 +242,13 @@ CommLattice::Swap *CommLattice::create_swap_all_reverse()
 
   tagint *id = app->id;
   int *owner = applattice->owner;
-  int *numneigh = applattice->numneigh;
+  uint8_t *numneigh = applattice->numneigh;
   int **neighbor = applattice->neighbor;
 
   // flag ghost sites with -1
   // flag owned sites with 0
 
-  int *flag;
+  int8_t *flag;
   memory->create(flag,ntotal,"comm:flag");
   for (i = 0; i < ntotal; i++) flag[i] = -1;
   for (i = 0; i < nlocal; i++) flag[i] = 0;
@@ -314,13 +315,13 @@ CommLattice::Swap *CommLattice::create_swap_sector(int nsites, int *site2i)
   int ntotal = nlocal + nghost;
 
   tagint *id = app->id;
-  int *numneigh = applattice->numneigh;
+  uint8_t *numneigh = applattice->numneigh;
   int **neighbor = applattice->neighbor;
 
   // flag sites with -1 that are not in sector
   // flag sites with 0 that are in sector
 
-  int *flag;
+  int8_t *flag;
   memory->create(flag,ntotal,"comm:flag");
   for (i = 0; i < ntotal; i++) flag[i] = -1;
   for (m = 0; m < nsites; m++) flag[site2i[m]] = 0;
@@ -389,13 +390,13 @@ CommLattice::Swap *CommLattice::create_swap_sector_reverse(int nsites,
 
   tagint *id = app->id;
   int *owner = applattice->owner;
-  int *numneigh = applattice->numneigh;
+  uint8_t *numneigh = applattice->numneigh;
   int **neighbor = applattice->neighbor;
 
   // flag sites with -1 that are not in sector
   // flag sites with 0 that are in sector
 
-  int *flag;
+  int8_t *flag;
   memory->create(flag,ntotal,"comm:flag");
   for (i = 0; i < ntotal; i++) flag[i] = -1;
   for (m = 0; m < nsites; m++) flag[site2i[m]] = 0;
@@ -525,10 +526,10 @@ void CommLattice::create_send_from_recv(int nsite, int maxsite,
       // if original_proc not last one in sproc[], add proc to send list
 
       if (nsend == 0 || sproc[nsend-1] != original_proc) {
-	sproc[nsend] = original_proc;
-	scount[nsend] = 0;
-	sindex[nsend] = NULL;
-	nsend++;
+      	sproc[nsend] = original_proc;
+      	scount[nsend] = 0;
+      	sindex[nsend] = NULL;
+      	nsend++;
       }
 
       // add index to send list going to a particular proc
@@ -536,8 +537,8 @@ void CommLattice::create_send_from_recv(int nsite, int maxsite,
 
       isend = nsend - 1;
       if (scount[isend] == smax[isend]) {
-	smax[isend] += DELTA;
-	memory->grow(sindex[isend],smax[isend],"comm:sindex");
+      	smax[isend] += DELTA;
+      	memory->grow(sindex[isend],smax[isend],"comm:sindex");
       }
       sindex[isend][scount[isend]] = loc->second;
       scount[isend]++;
@@ -546,17 +547,12 @@ void CommLattice::create_send_from_recv(int nsite, int maxsite,
 
   // allocate sbuf
   // sizes depend on number of ints and doubles stored per site
-
-  int max = 0;
-  for (i = 0; i < nsend; i++) max = MAX(max,scount[i]);
-
-  int *sibuf = NULL;
-  double *sdbuf = NULL;
-  if (max) {
-    if (site_only) sibuf = new int[max];
-    else if (ndouble == 0) sibuf = new int[ninteger*max];
-    else if (ninteger == 0) sdbuf = new double[ndouble*max];
-    else sdbuf = new double[(ninteger+ndouble)*max];
+  //int *sibuf = NULL;
+  int ** sibuf = new int *[nsend];
+  double **sdbuf = new double*[nsend];
+  for (i = 0; i < nsend; i++) {
+    if (site_only) sibuf[i] = new int[scount[i]];
+    else sdbuf[i] = new double[(ninteger+ndouble)*scount[i]];
   }
 
   // clean up
@@ -572,6 +568,12 @@ void CommLattice::create_send_from_recv(int nsite, int maxsite,
   swap->sindex = sindex;
   swap->sibuf = sibuf;
   swap->sdbuf = sdbuf;
+  
+    if (swap->nsend) {
+    swap->srequest = new MPI_Request[swap->nsend];
+  } else {
+    swap->srequest = NULL;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -627,19 +629,14 @@ void CommLattice::create_send_from_list(int nsite, Site *buf, Swap *swap)
 
   // allocate sbuf
   // sizes depend on number of ints and doubles stored per site
-
-  int max = 0;
-  for (i = 0; i < nsend; i++) max = MAX(max,scount[i]);
-
-  int *sibuf = NULL;
-  double *sdbuf = NULL;
-  if (max) {
-    if (site_only) sibuf = new int[max];
-    else if (ndouble == 0) sibuf = new int[ninteger*max];
-    else if (ninteger == 0) sdbuf = new double[ndouble*max];
-    else sdbuf = new double[(ninteger+ndouble)*max];
+  int ** sibuf = new int *[nsend];
+  double **sdbuf = new double*[nsend];
+  for (i = 0; i < nsend; i++) {
+    if (site_only) sibuf[i] = new int[scount[i]];
+    else sdbuf[i] = new double[(ninteger+ndouble)*scount[i]];
   }
-
+  
+  
   // fill in swap data structure
 
   swap->nsend = nsend;
@@ -649,6 +646,13 @@ void CommLattice::create_send_from_list(int nsite, Site *buf, Swap *swap)
   swap->sindex = sindex;
   swap->sibuf = sibuf;
   swap->sdbuf = sdbuf;
+  
+    if (swap->nsend) {
+    swap->srequest = new MPI_Request[swap->nsend];
+  } else {
+    swap->srequest = NULL;
+  }
+  
 }
 
 /* ----------------------------------------------------------------------
@@ -730,10 +734,10 @@ void CommLattice::create_recv_from_send(int nsite, int maxsite,
       // if original_proc not last one in rproc[], add proc to recv list
 
       if (nrecv == 0 || rproc[nrecv-1] != original_proc) {
-	rproc[nrecv] = original_proc;
-	rcount[nrecv] = 0;
-	rindex[nrecv] = NULL;
-	nrecv++;
+      	rproc[nrecv] = original_proc;
+      	rcount[nrecv] = 0;
+      	rindex[nrecv] = NULL;
+      	nrecv++;
       }
 
       // add index to recv list from a particular proc
@@ -741,8 +745,8 @@ void CommLattice::create_recv_from_send(int nsite, int maxsite,
       
       irecv = nrecv - 1;
       if (rcount[irecv] == rmax[irecv]) {
-	rmax[irecv] += DELTA;
-	memory->grow(rindex[irecv],rmax[irecv],"comm:rindex");
+      	rmax[irecv] += DELTA;
+      	memory->grow(rindex[irecv],rmax[irecv],"comm:rindex");
       }
       rindex[irecv][rcount[irecv]] = loc->second;
       rcount[irecv]++;
@@ -754,8 +758,8 @@ void CommLattice::create_recv_from_send(int nsite, int maxsite,
 
   for (i = 0; i < nrecv; i++) {
     if (site_only) ribuf[i] = new int[rcount[i]];
-    else if (ndouble == 0) ribuf[i] = new int[ninteger*rcount[i]];
-    else if (ninteger == 0) rdbuf[i] = new double[ndouble*rcount[i]];
+//    else if (ndouble == 0) ribuf[i] = new int[ninteger*rcount[i]];
+//    else if (ninteger == 0) rdbuf[i] = new double[ndouble*rcount[i]];
     else rdbuf[i] = new double[(ninteger+ndouble)*rcount[i]];
   }
 
@@ -775,9 +779,11 @@ void CommLattice::create_recv_from_send(int nsite, int maxsite,
 
   if (swap->nrecv) {
     swap->request = new MPI_Request[swap->nrecv];
+    //swap->srequest = new MPI_Request[swap->nsend];
     swap->status = new MPI_Status[swap->nrecv];
   } else {
     swap->request = NULL;
+    //swap->srequest = NULL;
     swap->status = NULL;
   }
 }
@@ -846,8 +852,8 @@ void CommLattice::create_recv_from_list(int nsite, Site *buf, Swap *swap)
 
   for (i = 0; i < nrecv; i++) {
     if (site_only) ribuf[i] = new int[rcount[i]];
-    else if (ndouble == 0) ribuf[i] = new int[ninteger*rcount[i]];
-    else if (ninteger == 0) rdbuf[i] = new double[ndouble*rcount[i]];
+//    else if (ndouble == 0) ribuf[i] = new int[ninteger*rcount[i]];
+//    else if (ninteger == 0) rdbuf[i] = new double[ndouble*rcount[i]];
     else rdbuf[i] = new double[(ninteger+ndouble)*rcount[i]];
   }
 
@@ -881,6 +887,8 @@ void CommLattice::free_swap(Swap *swap)
   delete [] swap->smax;
   for (int i = 0; i < swap->nsend; i++) memory->destroy(swap->sindex[i]);
   delete [] swap->sindex;
+  for (int i = 0; i < swap->nsend; i++) delete [] swap->sibuf[i];
+  for (int i = 0; i < swap->nsend; i++) delete [] swap->sdbuf[i];
   delete [] swap->sibuf;
   delete [] swap->sdbuf;
 
@@ -901,44 +909,59 @@ void CommLattice::free_swap(Swap *swap)
 }
 
 /* ----------------------------------------------------------------------
-   communicate site values via Swap instructions
-   use site array = iarray[0] as source/destination
+   communicate ghost values via Swap instructions
+   use iarray and darray as source/destination, mixed integer/double data
 ------------------------------------------------------------------------- */
 
-void CommLattice::perform_swap_site(Swap *swap)
+void CommLattice::perform_swap_general(Swap *swap)
 {
-  int i,j;
-  int *index;
-  int *buf;
+  int i,j,m,n;
+  int *index,*ivector;
+  double *buf,*dvector;
 
   // post receives
-
+  //assert(swap->nrecv == swap->nsend);
+  int ntotal = ninteger + ndouble;
   for (i = 0; i < swap->nrecv; i++)
-    MPI_Irecv(swap->ribuf[i],swap->rcount[i],MPI_INT,swap->rproc[i],0,world,
-	      &swap->request[i]);
-
-  // pack data to send to each proc and send it
-
+    MPI_Irecv(swap->rdbuf[i],ntotal*swap->rcount[i],MPI_DOUBLE,
+	      swap->rproc[i],0,world,&swap->request[i]);
+             
   for (i = 0; i < swap->nsend; i++) {
     index = swap->sindex[i];
-    buf = swap->sibuf;
-    for (j = 0; j < swap->scount[i]; j++)
-      buf[j] = site[index[j]];
-    MPI_Send(buf,swap->scount[i],MPI_INT,swap->sproc[i],0,world);
+    buf = swap->sdbuf[i];
+    m = 0;
+    for (n = 0; n < ninteger; n++) {
+      ivector = iarray[n];
+      for (j = 0; j < swap->scount[i]; j++) buf[m++] = ivector[index[j]];
+    }
+    for (n = 0; n < ndouble; n++) {
+      dvector = darray[n];
+      for (j = 0; j < swap->scount[i]; j++) buf[m++] = dvector[index[j]];
+    }
+    MPI_Isend(buf,ntotal*swap->scount[i],MPI_DOUBLE,swap->sproc[i],0,world,&swap->srequest[i]);
   }
 
   // wait on incoming messages
-
-  if (swap->nrecv) MPI_Waitall(swap->nrecv,swap->request,swap->status);
+  MPI_Waitall(swap->nrecv,swap->request,MPI_STATUSES_IGNORE);
 
   // unpack received buffers of data from each proc
 
   for (i = 0; i < swap->nrecv; i++) {
     index = swap->rindex[i];
-    buf = swap->ribuf[i];
-    for (j = 0; j < swap->rcount[i]; j++)
-      site[index[j]] = buf[j];
+    buf = swap->rdbuf[i];
+    m = 0;
+    for (n = 0; n < ninteger; n++) {
+      ivector = iarray[n];
+      for (j = 0; j < swap->rcount[i]; j++)
+	ivector[index[j]] = static_cast<int> (buf[m++]);
+    }
+    for (n = 0; n < ndouble; n++) {
+      dvector = darray[n];
+      for (j = 0; j < swap->rcount[i]; j++) dvector[index[j]] = buf[m++];
+    }
   }
+
+  MPI_Waitall(swap->nsend,swap->srequest,MPI_STATUSES_IGNORE);
 }
 
 /* ----------------------------------------------------------------------
@@ -961,7 +984,7 @@ void CommLattice::perform_swap_int(Swap *swap)
 
   for (i = 0; i < swap->nsend; i++) {
     index = swap->sindex[i];
-    buf = swap->sibuf;
+    buf = swap->sibuf[i];
     m = 0;
     for (n = 0; n < ninteger; n++) {
       vector = iarray[n];
@@ -1008,7 +1031,7 @@ void CommLattice::perform_swap_double(Swap *swap)
 
   for (i = 0; i < swap->nsend; i++) {
     index = swap->sindex[i];
-    buf = swap->sdbuf;
+    buf = swap->sdbuf[i];
     m = 0;
     for (n = 0; n < ndouble; n++) {
       vector = darray[n];
@@ -1035,58 +1058,100 @@ void CommLattice::perform_swap_double(Swap *swap)
 }
 
 /* ----------------------------------------------------------------------
-   communicate ghost values via Swap instructions
-   use iarray and darray as source/destination, mixed integer/double data
+   communicate site values via Swap instructions
+   use site array = iarray[0] as source/destination
 ------------------------------------------------------------------------- */
 
-void CommLattice::perform_swap_general(Swap *swap)
+void CommLattice::perform_swap_site(Swap *swap)
 {
-  int i,j,m,n;
-  int *index,*ivector;
-  double *buf,*dvector;
+  int i,j;
+  int *index;
+  int *buf;
 
   // post receives
 
-  int ntotal = ninteger + ndouble;
   for (i = 0; i < swap->nrecv; i++)
-    MPI_Irecv(swap->rdbuf[i],ntotal*swap->rcount[i],MPI_DOUBLE,
-	      swap->rproc[i],0,world,&swap->request[i]);
+    MPI_Irecv(swap->ribuf[i],swap->rcount[i],MPI_INT,swap->rproc[i],0,world,
+	      &swap->request[i]);
 
   // pack data to send to each proc and send it
 
   for (i = 0; i < swap->nsend; i++) {
     index = swap->sindex[i];
-    buf = swap->sdbuf;
-    m = 0;
-    for (n = 0; n < ninteger; n++) {
-      ivector = iarray[n];
-      for (j = 0; j < swap->scount[i]; j++) buf[m++] = ivector[index[j]];
-    }
-    for (n = 0; n < ndouble; n++) {
-      dvector = darray[n];
-      for (j = 0; j < swap->scount[i]; j++) buf[m++] = dvector[index[j]];
-    }
-    MPI_Send(buf,ntotal*swap->scount[i],MPI_DOUBLE,swap->sproc[i],0,world);
+    buf = swap->sibuf[i];
+    for (j = 0; j < swap->scount[i]; j++)
+      buf[j] = site[index[j]];
+    MPI_Send(buf,swap->scount[i],MPI_INT,swap->sproc[i],0,world);
   }
 
   // wait on incoming messages
 
-  if (swap->nrecv) MPI_Waitall(swap->nrecv,swap->request,swap->status);
+  MPI_Waitall(swap->nrecv,swap->request,swap->status);
 
   // unpack received buffers of data from each proc
 
   for (i = 0; i < swap->nrecv; i++) {
     index = swap->rindex[i];
-    buf = swap->rdbuf[i];
-    m = 0;
-    for (n = 0; n < ninteger; n++) {
-      ivector = iarray[n];
-      for (j = 0; j < swap->rcount[i]; j++)
-	ivector[index[j]] = static_cast<int> (buf[m++]);
-    }
-    for (n = 0; n < ndouble; n++) {
-      dvector = darray[n];
-      for (j = 0; j < swap->rcount[i]; j++) dvector[index[j]] = buf[m++];
-    }
+    buf = swap->ribuf[i];
+    for (j = 0; j < swap->rcount[i]; j++)
+      site[index[j]] = buf[j];
   }
+  MPI_Waitall(swap->nsend,swap->srequest,MPI_STATUSES_IGNORE);
 }
+
+/* ----------------------------------------------------------------------
+   communicate ghost values via Swap instructions
+   use iarray and darray as source/destination, mixed integer/double data
+------------------------------------------------------------------------- */
+
+//void CommLattice::swap_specified(Swap *swap)
+//{
+//  int i,j,m,n;
+//  int *index,*ivector;
+//  double *buf,*dvector;
+//
+//  // post receives
+//
+//  int ntotal = ninteger + ndouble;
+//  for (i = 0; i < swap->nrecv; i++)
+//    MPI_Irecv(swap->rdbuf[i],ntotal*swap->rcount[i],MPI_DOUBLE,
+//	      swap->rproc[i],0,world,&swap->request[i]);
+//
+//  // pack data to send to each proc and send it
+//
+//  for (i = 0; i < swap->nsend; i++) {
+//    index = swap->sindex[i];
+//    buf = swap->sdbuf[i];
+//    m = 0;
+//    for (n = 0; n < ninteger; n++) {
+//      ivector = iarray[n];
+//      for (j = 0; j < swap->scount[i]; j++) buf[m++] = ivector[index[j]];
+//    }
+//    for (n = 0; n < ndouble; n++) {
+//      dvector = darray[n];
+//      for (j = 0; j < swap->scount[i]; j++) buf[m++] = dvector[index[j]];
+//    }
+//    MPI_Isend(buf,(ninteger+ndouble)*scount[i],MPI_DOUBLE,swap->sproc[i],0,world);
+//  }
+//
+//  // wait on incoming messages
+//
+//  if (swap->nrecv) MPI_Waitall(swap->nrecv,swap->request,swap->status);
+//
+//  // unpack received buffers of data from each proc
+//
+//  for (i = 0; i < swap->nrecv; i++) {
+//    index = swap->rindex[i];
+//    buf = swap->rdbuf[i];
+//    m = 0;
+//    for (n = 0; n < ninteger; n++) {
+//      ivector = iarray[n];
+//      for (j = 0; j < swap->rcount[i]; j++)
+//	      ivector[index[j]] = static_cast<int> (buf[m++]);
+//    }
+//    for (n = 0; n < ndouble; n++) {
+//      dvector = darray[n];
+//      for (j = 0; j < swap->rcount[i]; j++) dvector[index[j]] = buf[m++];
+//    }
+//  }
+//}

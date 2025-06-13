@@ -650,7 +650,7 @@ void DumpImage::create_image()
     double dx = domain->lattice->xlattice;
     double dy = domain->lattice->ylattice;
     double dz = domain->lattice->zlattice;
-    int *numneigh = applattice->numneigh;
+    uint8_t *numneigh = applattice->numneigh;
     int **neighbor = applattice->neighbor;
     tagint *id = app->id;
     int **iarray = app->iarray;
@@ -870,14 +870,14 @@ int DumpImage::modify_param(int narg, char **arg)
       int ncount = 1;
       char *nextptr;
       char *ptr = arg[2];
-      while (nextptr = strchr(ptr,'/')) {
+      while ((nextptr = strchr(ptr,'/'))) {
 	ptr = nextptr + 1;
 	ncount++;
       }
       char **ptrs = new char*[ncount+1];
       ncount = 0;
       ptrs[ncount++] = strtok(arg[2],"/");
-      while (ptrs[ncount++] = strtok(NULL,"/"));
+      while ((ptrs[ncount++] = strtok(NULL,"/")));
       ncount--;
       
       int m = 0;

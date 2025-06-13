@@ -18,6 +18,7 @@
 #include "app.h"
 
 #include <stack>
+#include <vector>
 
 namespace SPPARKS_NS {
 
@@ -30,7 +31,8 @@ class AppLattice : public App {
 
   int nmax;                    // max # of sites per-site arrays can store
   int maxneigh;                // max neighbors of any site in entire system
-  int *numneigh;               // # of neighbors of each site
+  uint8_t *numneigh;               // # of neighbors of each site
+  //std::vector<uint8_t> numneigh;
   int **neighbor;              // local indices of neighbors of each site
 
   // simple = 1 if lattice is simple and regular (square or cubic)
@@ -151,12 +153,8 @@ class AppLattice : public App {
 
   void iterate_kmc_global(double);
   void iterate_kmc_sector(double);
-
   virtual void iterate_rejection(double);
   void iterate_app_update_only(double,double);
-
-  void update_kmc_sector_border_propensities();
-  int whichset(int);
 
   typedef void (AppLattice::*FnPtrSweep)(int, int *);
   FnPtrSweep sweep;                         // ptr to< sweep functions

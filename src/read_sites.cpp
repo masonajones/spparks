@@ -19,7 +19,6 @@
 #include "read_sites.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "domain.h"
 #include "create_sites.h"
 #include "error.h"
@@ -68,21 +67,13 @@ void ReadSites::command(int narg, char **arg)
 
   if (narg != 1) error->all(FLERR,"Illegal read_sites command");
 
-  if (domain->dimension == 2 && domain->zperiodic == 0)
-    error->all(FLERR,"Cannot run 2d simulation with nonperiodic Z dimension");
-  if (domain->dimension == 1 && 
-      (domain->yperiodic == 0 || domain->zperiodic == 0))
-    error->all(FLERR,
-	       "Cannot run 1d simulation with nonperiodic Y or Z dimension");
+  if (domain->dimension < 3)
+    error->all(FLERR,"Only 3D simulations allowed");
 
   if (app->appclass == App::LATTICE) {
     applattice = (AppLattice *) app;
     latticeflag = 1;
-  } else if (app->appclass == App::OFF_LATTICE) {
-    appoff = (AppOffLattice *) app;
-    latticeflag = 0;
-  }
-
+  } 
   // read header info
 
   if (me == 0) {
@@ -103,8 +94,6 @@ void ReadSites::command(int narg, char **arg)
 
     domain->set_box();
     domain->box_exist = 1;
-    if (domain->dimension == 1) domain->procs2domain_1d();
-    if (domain->dimension == 2) domain->procs2domain_2d();
     if (domain->dimension == 3) domain->procs2domain_3d();
   }
 
@@ -237,7 +226,8 @@ void ReadSites::header()
     // trim anything from '#' onward
     // if line is blank, continue
 
-    if (ptr = strchr(line,'#')) *ptr = '\0';
+// ASSUMING CORRECT TO USE ASSIGNMENT RATHER THAN EQUALITY
+    if ((ptr = strchr(line,'#'))) *ptr = '\0';
     if (strspn(line," \t\n\r") == strlen(line)) continue;
 
     // search line for header keyword and set corresponding variable
@@ -375,7 +365,6 @@ void ReadSites::sites()
 	  y >= subylo && y < subyhi &&
 	  z >= subzlo && z < subzhi) {
 	if (latticeflag) applattice->add_site(id,x,y,z);
-	else appoff->add_site(id,x,y,z);
       }
 
       buf = next + 1;
@@ -606,13 +595,10 @@ void ReadSites::values()
         for (m = 0; m < nvalues; m++) sitevalues[m] = strtok(NULL," \t\n\r\f");
         if (columns == NULL) {
           if (latticeflag) applattice->add_values(loc->second,sitevalues);
-          else appoff->add_values(loc->second,sitevalues);
         } else {
           for (m = 0; m < nvalues; m++) {
             if (latticeflag) 
               applattice->add_value(loc->second,type[m],index[m],sitevalues[m]);
-            else 
-              appoff->add_value(loc->second,type[m],index[m],sitevalues[m]);
           }
         }
       }
@@ -725,7 +711,7 @@ void ReadSites::parse_keyword(int first)
 void ReadSites::parse_coeffs(int addflag, char *line)
 {
   char *ptr;
-  if (ptr = strchr(line,'#')) *ptr = '\0';
+  if ((ptr = strchr(line,'#'))) *ptr = '\0';
 
   narg = 0;
   char *word = strtok(line," \t\n\r\f");
@@ -754,7 +740,7 @@ int ReadSites::count_words(char *line)
   strcpy(copy,line);
 
   char *ptr;
-  if (ptr = strchr(copy,'#')) *ptr = '\0';
+  if ((ptr = strchr(copy,'#'))) *ptr = '\0';
 
   if (strtok(copy," \t\n\r\f") == NULL) {
     memory->sfree(copy);

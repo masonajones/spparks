@@ -17,7 +17,6 @@
 #include "dump.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "domain.h"
 #include "irregular.h"
 #include "memory.h"
@@ -104,10 +103,7 @@ Dump::Dump(SPPARKS *spk, int narg, char **arg) : Pointers(spk)
   if (app->appclass == App::LATTICE) {
     applattice = (AppLattice *) app;
     latticeflag = 1;
-  } else if (app->appclass == App::OFF_LATTICE) {
-    appoff = (AppOffLattice *) app;
-    latticeflag = 0;
-  } else
+  }  else
     error->all(FLERR,"Dump command can only be used for spatial applications");
 
   // dump params

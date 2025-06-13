@@ -46,7 +46,6 @@ class CreateSites : protected Pointers {
   int *basisflag,*basis_ivalue;
   double *basis_dvalue;
   int maxneigh;
-
   int latticeflag;
   class AppLattice *applattice;
   class AppOffLattice *appoff;
@@ -99,11 +98,8 @@ class CreateSites : protected Pointers {
 
   void structured_lattice();
   void structured_connectivity();
-  void random_sites();
-  void random_connectivity();
 
   void offsets(double **);
-  void offsets_2d(int, double **, double, double, int, int **);
   void offsets_3d(int, double **, double, double, int, int **);
 };
 

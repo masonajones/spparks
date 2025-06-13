@@ -18,6 +18,7 @@
 #include "string.h"
 #include "memory.h"
 #include "error.h"
+#include <cstdlib>
 
 using namespace SPPARKS_NS;
 
@@ -33,7 +34,8 @@ void *Memory::smalloc(bigint nbytes, const char *name)
 {
   if (nbytes == 0) return NULL;
 
-  void *ptr = malloc(nbytes);
+  //void *ptr = malloc(nbytes);
+  void *ptr = std::aligned_alloc(32, nbytes);
   if (ptr == NULL) {
     char str[128];
     sprintf(str,"Failed to allocate " BIGINT_FORMAT " bytes for array %s",
@@ -53,7 +55,6 @@ void *Memory::srealloc(void *ptr, bigint nbytes, const char *name)
     destroy(ptr);
     return NULL;
   }
-
   ptr = realloc(ptr,nbytes);
   if (ptr == NULL) {
     char str[128];
@@ -62,6 +63,30 @@ void *Memory::srealloc(void *ptr, bigint nbytes, const char *name)
     error->one(FLERR,str);
   }
   return ptr;
+}
+
+/* ----------------------------------------------------------------------
+   aligned realloc 
+------------------------------------------------------------------------- */
+
+void *Memory::aligned_realloc(void *ptr, bigint nbytes_new, bigint nbytes_old, const char *name)
+{
+  if (nbytes_new == 0) {
+    destroy(ptr);
+    return NULL;
+  }
+  void *newptr = std::aligned_alloc(32, nbytes_new);
+  if (!newptr) {
+    char str[128];
+    sprintf(str,"Failed to reallocate " BIGINT_FORMAT " bytes for array %s",
+	    nbytes_new,name);
+    error->one(FLERR,str);
+  }
+  if (ptr) {
+    memcpy(newptr, ptr, nbytes_old);
+    free(ptr);
+  }
+  return newptr;
 }
 
 /* ----------------------------------------------------------------------

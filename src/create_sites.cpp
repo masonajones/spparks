@@ -18,11 +18,9 @@
 #include "create_sites.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "domain.h"
 #include "lattice.h"
 #include "region.h"
-#include "potential.h"
 #include "random_mars.h"
 #include "random_park.h"
 #include "memory.h"
@@ -32,8 +30,8 @@ using namespace SPPARKS_NS;
 
 // same as in lattice.cpp
 
-enum{NONE,LINE_2N,SQ_4N,SQ_8N,TRI,SC_6N,SC_26N,FCC,BCC,DIAMOND,
-     FCC_OCTA_TETRA,RANDOM_1D,RANDOM_2D,RANDOM_3D};
+enum{SC_6N,SC_26N,FCC,BCC,DIAMOND,
+     FCC_OCTA_TETRA};
 
 enum{BOX,REGION};
 enum{DUMMY,IARRAY,DARRAY};
@@ -88,41 +86,43 @@ void CreateSites::command(int narg, char **arg)
       if (iarg+3 > narg) error->all(FLERR,"Illegal create_sites command");
       valueflag = 1;
       if (strcmp(arg[iarg+1],"site") == 0) {
-	valueflag = IARRAY;
-	valueindex = 0;
-	if (app->iarray == NULL)
-	  error->all(FLERR,"Creating a quantity application does not support");
-      } else if (arg[iarg+1][0] == 'i') {
-	valueflag = IARRAY;
-	valueindex = atoi(&arg[iarg+1][1]);
-	if (valueindex < 1 || valueindex > app->ninteger)
-	  error->all(FLERR,"Creating a quantity application does not support");
-	valueindex--;
-      } else if (arg[iarg+1][0] == 'd') {
-	valueflag = DARRAY;
-	valueindex = atoi(&arg[iarg+1][1]);
-	if (valueindex < 1 || valueindex > app->ndouble)
-	  error->all(FLERR,"Creating a quantity application does not support");
-	valueindex--;
+        valueflag = IARRAY;
+        valueindex = 0;
+        if (app->iarray == NULL)
+          error->all(FLERR,"Creating a quantity application does not support");
+      } 
+      else if (arg[iarg+1][0] == 'i') {
+        valueflag = IARRAY;
+        valueindex = atoi(&arg[iarg+1][1]);
+        if (valueindex < 1 || valueindex > app->ninteger)
+          error->all(FLERR,"Creating a quantity application does not support");
+        valueindex--;
+      } 
+      else if (arg[iarg+1][0] == 'd') {
+        valueflag = DARRAY;
+        valueindex = atoi(&arg[iarg+1][1]);
+        if (valueindex < 1 || valueindex > app->ndouble)
+          error->all(FLERR,"Creating a quantity application does not support");
+        valueindex--;
       }
       if (valueflag == IARRAY) ivalue = atoi(arg[iarg+2]);
       else dvalue = atof(arg[iarg+2]);
       iarg += 3;
-    } else if (strcmp(arg[iarg],"basis") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"basis") == 0) {
       if (iarg+3 > narg) error->all(FLERR,"Illegal create_sites command");
       if (valueflag == DUMMY) 
-	error->all(FLERR,"Must use value option before basis option "
-		   "in create_sites command");
+	      error->all(FLERR,"Must use value option before basis option "
+		    "in create_sites command");
       int ilo,ihi;
       if (nbasis == 0) 
-	error->all(FLERR,"Cannot use create_sites basis with random lattice");
-      potential->bounds(arg[iarg+1],nbasis,ilo,ihi);
+	      error->all(FLERR,"Cannot use create_sites basis with random lattice");
       int count = 0;
       for (int i = ilo; i <= ihi; i++) {
-	basisflag[i] = 1;
-	if (valueflag == IARRAY) basis_ivalue[i] = atoi(arg[iarg+2]);
-	else if (valueflag == DARRAY) basis_dvalue[i] = atof(arg[iarg+2]);
-	count++;
+        basisflag[i] = 1;
+        if (valueflag == IARRAY) basis_ivalue[i] = atoi(arg[iarg+2]);
+        else if (valueflag == DARRAY) basis_dvalue[i] = atof(arg[iarg+2]);
+        count++;
       }
       if (count == 0) error->all(FLERR,"Illegal create_sites command");
       iarg += 3;
@@ -131,8 +131,7 @@ void CreateSites::command(int narg, char **arg)
 
   // error checks
   // full option only allowed for on-lattice, style = BOX, simple lattices
-
-  // create sites, either on-lattice or off-lattice
+  // create sites, on-lattice
 
   if (domain->me == 0) {
     if (screen) fprintf(screen,"Creating sites ...\n");
@@ -144,39 +143,16 @@ void CreateSites::command(int narg, char **arg)
   int dimension = domain->dimension;
   latstyle = domain->lattice->style;
 
-  if (app->appclass == App::LATTICE) {
-    applattice = (AppLattice *) app;
-    latticeflag = 1;
-  } else if (app->appclass == App::OFF_LATTICE) {
-    appoff = (AppOffLattice *) app;
-    latticeflag = 0;
-  }
-
-
-  if (latstyle == LINE_2N ||
-      latstyle == SQ_4N || latstyle == SQ_8N || latstyle == TRI || 
-      latstyle == SC_6N || latstyle == SC_26N || 
-      latstyle == FCC || latstyle == BCC || latstyle == DIAMOND ||
-      latstyle == FCC_OCTA_TETRA) {
-
-    xlattice = domain->lattice->xlattice;
-    ylattice = domain->lattice->ylattice;
-    zlattice = domain->lattice->zlattice;
-
-    structured_lattice();
-    if (latticeflag) structured_connectivity();
-
-  } else if (latstyle == RANDOM_1D || latstyle == RANDOM_2D ||
-	     latstyle == RANDOM_3D) {
-    random_sites();
-    if (latticeflag) random_connectivity();
-  }
-
-  if (latticeflag) {
-    ghosts_from_connectivity(applattice,applattice->delpropensity);
-    applattice->print_connectivity();
-  }
-
+  applattice = (AppLattice *) app;
+  latticeflag = 1;
+  xlattice = domain->lattice->xlattice;
+  ylattice = domain->lattice->ylattice;
+  zlattice = domain->lattice->zlattice;
+  structured_lattice();
+  structured_connectivity();
+  ghosts_from_connectivity(applattice,applattice->delpropensity);
+  applattice->print_connectivity();
+  
   // clean up
 
   delete [] basisflag;
@@ -205,8 +181,6 @@ void CreateSites::structured_lattice()
   double boxxhi = domain->boxxhi;
   double boxyhi = domain->boxyhi;
   double boxzhi = domain->boxzhi;
-  if (dimension <= 1) boxylo = 0.5 * (boxylo+boxyhi);
-  if (dimension <= 2) boxzlo = 0.5 * (boxzlo+boxzhi);
 
   double subxlo = domain->subxlo;
   double subylo = domain->subylo;
@@ -223,19 +197,15 @@ void CreateSites::structured_lattice()
   // check that simulation box is integer multiple of lattice spacing
   
   nx = static_cast<int> (domain->xprd / xlattice);
-  if (dimension >= 2) ny = static_cast<int> (domain->yprd / ylattice);
-  else ny = 1;
-  if (dimension == 3) nz = static_cast<int> (domain->zprd / zlattice);
-  else nz = 1;
+  ny = static_cast<int> (domain->yprd / ylattice);
+  nz = static_cast<int> (domain->zprd / zlattice);
 
-  if (xperiodic && 
-      fabs(nx*xlattice - domain->xprd) > EPSILON*xlattice)
+
+  if (xperiodic && fabs(nx*xlattice - domain->xprd) > EPSILON*xlattice)
     error->all(FLERR,"Periodic box is not a multiple of lattice spacing");
-  if (dimension > 1 && yperiodic &&
-      fabs(ny*ylattice - domain->yprd) > EPSILON*ylattice)
+  if (yperiodic && fabs(ny*ylattice - domain->yprd) > EPSILON*ylattice)
     error->all(FLERR,"Periodic box is not a multiple of lattice spacing");
-  if (dimension > 2 && zperiodic && 
-      fabs(nz*zlattice - domain->zprd) > EPSILON*zlattice)
+  if (zperiodic && fabs(nz*zlattice - domain->zprd) > EPSILON*zlattice)
     error->all(FLERR,"Periodic box is not a multiple of lattice spacing");
 
   // set domain->nx,ny,nz iff style = BOX and system is fully periodic
@@ -250,9 +220,7 @@ void CreateSites::structured_lattice()
   // simple = 1 if lattice is square or cubic and fills entire box
 
   int simple = 0;
-  if (style == BOX && 
-      (latstyle == SQ_4N || latstyle == SQ_8N ||
-       latstyle == SC_6N || latstyle == SC_26N)) simple = 1;
+  if (style == BOX && (latstyle == SC_6N || latstyle == SC_26N)) simple = 1;
 
   // if dim is periodic:
   //   lattice origin = lower box boundary
@@ -266,49 +234,59 @@ void CreateSites::structured_lattice()
     xorig = boxxlo;
     xlo = 0;
     xhi = nx-1;
-  } else {
+  } 
+  else {
     xorig = 0.0;
-    xlo = static_cast<int> (boxxlo / xlattice);
-    while ((xlo+1)*xlattice > boxxlo) xlo--;
-    xlo++;
-    xhi = static_cast<int> (boxxhi / xlattice);
-    while (xhi*xlattice <= boxxhi) xhi++;
-    xhi--;
+    xlo = static_cast<int>(std::floor(boxxlo / xlattice));
+    xhi = static_cast<int>(std::ceil(boxxhi / xlattice))-1;
+//    xlo = static_cast<int> (boxxlo / xlattice);
+//    while ((xlo+1)*xlattice > boxxlo) xlo--;
+//    xlo++;
+    
+//    xhi = static_cast<int> (boxxhi / xlattice);
+//    while (xhi*xlattice <= boxxhi) xhi++;
+//    xhi--;
   }
 
   if (yperiodic) {
     yorig = boxylo;
     ylo = 0;
     yhi = ny-1;
-  } else {
+  } 
+  else {
     yorig = 0.0;
-    ylo = static_cast<int> (boxylo / ylattice);
-    while ((ylo+1)*ylattice > boxylo) ylo--;
-    ylo++;
-    yhi = static_cast<int> (boxyhi / ylattice);
-    while (yhi*ylattice <= boxyhi) yhi++;
-    yhi--;
+    ylo = static_cast<int>(std::floor(boxylo / ylattice));
+    yhi = static_cast<int>(std::ceil(boxyhi / ylattice))-1;
+//    ylo = static_cast<int> (boxylo / ylattice);
+//    while ((ylo+1)*ylattice > boxylo) ylo--;
+//    ylo++;
+//    yhi = static_cast<int> (boxyhi / ylattice);
+//    while (yhi*ylattice <= boxyhi) yhi++;
+//    yhi--;
   }
   
   if (zperiodic) {
     zorig = boxzlo;
     zlo = 0;
     zhi = nz-1;
-  } else {
+  } 
+  else {
     zorig = 0.0;
-    zlo = static_cast<int> (boxzlo / zlattice);
-    while ((zlo+1)*zlattice > boxzlo) zlo--;
-    zlo++;
-    zhi = static_cast<int> (boxzhi / zlattice);
-    while (zhi*zlattice <= boxzhi) zhi++;
-    zhi--;
+    zlo = static_cast<int>(std::floor(boxzlo / zlattice));
+    zhi = static_cast<int>(std::ceil(boxzhi / zlattice))-1;
+//    zlo = static_cast<int> (boxzlo / zlattice);
+//    while ((zlo+1)*zlattice > boxzlo) zlo--;
+//    zlo++;
+//    zhi = static_cast<int> (boxzhi / zlattice);
+//    while (zhi*zlattice <= boxzhi) zhi++;
+//    zhi--;
   }
 
   // check for possible overflow of site IDs
 
   bigint nglobal = (xhi-xlo+1)*nbasis;
-  if (dimension >= 2) nglobal *= (yhi-ylo+1)*nbasis;
-  if (dimension == 3) nglobal *= (zhi-zlo+1)*nbasis;
+  nglobal *= (yhi-ylo+1)*nbasis;
+  nglobal *= (zhi-zlo+1)*nbasis;
   if (nglobal > MAXTAGINT) 
     error->all(FLERR,"Site IDs may exceed max ID value");
 
@@ -336,56 +314,57 @@ void CreateSites::structured_lattice()
   int yhi_me = ylo;
   int zlo_me = zhi;
   int zhi_me = zlo;
+  
+  
 
   n = 0;
-  for (k = zlo; k <= zhi; k++)
-    for (j = ylo; j <= yhi; j++)
-      for (i = xlo; i <= xhi; i++)
-	for (m = 0; m < nbasis; m++) {
-	  n++;
+  for (k = zlo; k <= zhi; k++) {
+    for (j = ylo; j <= yhi; j++) {
+      for (i = xlo; i <= xhi; i++) {
+        for (m = 0; m < nbasis; m++) {
+          n++;
           gid = n;
 
-	  x = (i + basis[m][0])*xlattice + xorig;
-	  y = (j + basis[m][1])*ylattice + yorig;
-	  z = (k + basis[m][2])*zlattice + zorig;
+          x = (i + basis[m][0])*xlattice + xorig;
+          y = (j + basis[m][1])*ylattice + yorig;
+          z = (k + basis[m][2])*zlattice + zorig;
 
-	  if (nonperiodic) {
-	    if (!xperiodic && (x < boxxlo || x >= boxxhi)) continue;
-	    if (!yperiodic && (y < boxylo || y >= boxyhi)) continue;
-	    if (!zperiodic && (z < boxzlo || z >= boxzhi)) continue;
-	  }
-	  if (style == REGION &&
-	      domain->regions[nregion]->match(x,y,z) == 0) continue;
+          if (nonperiodic) {
+            if (!xperiodic && (x < boxxlo || x >= boxxhi)) continue;
+            if (!yperiodic && (y < boxylo || y >= boxyhi)) continue;
+            if (!zperiodic && (z < boxzlo || z >= boxzhi)) continue;
+          }
+          if (style == REGION && domain->regions[nregion]->match(x,y,z) == 0) continue;
 
-	  if (x < subxlo || x >= subxhi || 
-	      y < subylo || y >= subyhi || 
-	      z < subzlo || z >= subzhi) continue;
+          if (x < subxlo || x >= subxhi || 
+              y < subylo || y >= subyhi || 
+              z < subzlo || z >= subzhi) continue;
 
-	  if (latticeflag) applattice->add_site(gid,x,y,z);
-	  else appoff->add_site(gid,x,y,z);
-	  nlocal = app->nlocal;
+          applattice->add_site(gid,x,y,z); //also weird that this can grow by delta
+          nlocal = app->nlocal; 
 
-	  if (nlocal > maxlocal) {
-	    maxlocal += DELTALOCAL;
-	    memory->grow(siteijk,maxlocal,4,"create:siteijk");
-	  }
+          if (nlocal > maxlocal) { // this is weird, isn't the local array size just (subhi-sublo)*(subhi-sublo)*(subhi-sublo)?
+            maxlocal += DELTALOCAL; // why are we increasing it by a fixed amount?
+            memory->grow(siteijk,maxlocal,4,"create:siteijk");
+          }
 
-	  siteijk[nlocal-1][0] = i;
-	  siteijk[nlocal-1][1] = j;
-	  siteijk[nlocal-1][2] = k;
-	  siteijk[nlocal-1][3] = m;
+          siteijk[nlocal-1][0] = i;
+          siteijk[nlocal-1][1] = j;
+          siteijk[nlocal-1][2] = k;
+          siteijk[nlocal-1][3] = m;
 
-	  if (valueflag == IARRAY) {
-	    if (basisflag[m+1])
-	      iarray[valueindex][nlocal-1] = basis_ivalue[m+1];
-	    else iarray[valueindex][nlocal-1] = ivalue;
-	  } else if (valueflag == DARRAY) {
-	    if (basisflag[m+1]) 
-	      darray[valueindex][nlocal-1] = basis_dvalue[m+1];
-	    else darray[valueindex][nlocal-1] = dvalue;
-	  }
+          if (valueflag == IARRAY) {
+            if (basisflag[m+1])
+              iarray[valueindex][nlocal-1] = basis_ivalue[m+1];
+            else iarray[valueindex][nlocal-1] = ivalue;
+          } 
+          else if (valueflag == DARRAY) {
+            if (basisflag[m+1]) 
+              darray[valueindex][nlocal-1] = basis_dvalue[m+1];
+            else darray[valueindex][nlocal-1] = dvalue;
+          }
 
-          if (simple) {
+          if (simple) { // I've got no idea what this is doing. Already have subhi/lo?
             xlo_me = MIN(i,xlo_me);
             xhi_me = MAX(i,xhi_me);
             ylo_me = MIN(j,ylo_me);
@@ -393,7 +372,10 @@ void CreateSites::structured_lattice()
             zlo_me = MIN(k,zlo_me);
             zhi_me = MAX(k,zhi_me);
           }
-	}
+        }
+      }
+    }
+  }
 
   // print site count
 
@@ -504,6 +486,7 @@ void CreateSites::structured_connectivity()
 
   int dimension = domain->dimension;
   int nonperiodic = domain->nonperiodic;
+  int thermally_insulated = domain->therminsulated;
   int xperiodic = domain->xperiodic;
   int yperiodic = domain->yperiodic;
   int zperiodic = domain->zperiodic;
@@ -521,16 +504,13 @@ void CreateSites::structured_connectivity()
 
   // set maxneigh and allocate idneigh array to store connectivity
 
-  if (latstyle == LINE_2N) maxneigh = 2;
-  else if (latstyle == SQ_4N) maxneigh = 4;
-  else if (latstyle == SQ_8N) maxneigh = 8;
-  else if (latstyle == TRI) maxneigh = 6;
-  else if (latstyle == SC_6N) maxneigh = 6;
+  if (latstyle == SC_6N) maxneigh = 6;
   else if (latstyle == SC_26N) maxneigh = 26;
   else if (latstyle == FCC) maxneigh = 12;
   else if (latstyle == BCC) maxneigh = 8;
   else if (latstyle == DIAMOND) maxneigh = 4;
   else if (latstyle == FCC_OCTA_TETRA) maxneigh = 26;
+  else error->all(FLERR,"Illegal lattice style");
 
   memory->create(idneigh,app->nlocal,maxneigh,"create:idneigh");
 
@@ -549,14 +529,15 @@ void CreateSites::structured_connectivity()
   tagint nglobal = app->nglobal;
   int nlocal = app->nlocal;
   tagint *id = app->id;
-  int *numneigh = applattice->numneigh;
+  uint8_t *numneigh = applattice->numneigh;
 
   for (i = 0; i < nlocal; i++) {
     numneigh[i] = 0;
     if (latstyle == FCC_OCTA_TETRA) {
       if ((id[i]-1) % 16 < 8) max = maxneigh;
       else max = 14;
-    } else max = maxneigh;
+    } 
+    else max = maxneigh;
     
     for (j = 0; j < max; j++) {
 
@@ -579,48 +560,65 @@ void CreateSites::structured_connectivity()
       // remap neighbor coords and indices into periodic box via ijk neigh
 
       if (xperiodic) {
-	if (ineigh < 0) {
-	  xneigh += xprd;
-	  ineigh += nx;
-	}
-	if (ineigh >= nx) {
-	  xneigh -= xprd;
-	  xneigh = MAX(xneigh,boxxlo);
-	  ineigh -= nx;
-	}
+        if (ineigh < 0) {
+          xneigh += xprd;
+          ineigh += nx;
+        }
+        if (ineigh >= nx) {
+          xneigh -= xprd;
+          xneigh = MAX(xneigh,boxxlo);
+          ineigh -= nx;
+        }
       }
       if (yperiodic) {
-	if (jneigh < 0) {
-	  yneigh += yprd;
-	  jneigh += ny;
-	}
-	if (jneigh >= ny) {
-	  yneigh -= yprd;
-	  yneigh = MAX(yneigh,boxylo);
-	  jneigh -= ny;
-	}
+        if (jneigh < 0) {
+          yneigh += yprd;
+          jneigh += ny;
+        }
+        if (jneigh >= ny) {
+          yneigh -= yprd;
+          yneigh = MAX(yneigh,boxylo);
+          jneigh -= ny;
+        }
       }
       if (zperiodic) {
-	if (kneigh < 0) {
-	  zneigh += zprd;
-	  kneigh += nz;
-	}
-	if (kneigh >= nz) {
-	  zneigh -= zprd;
-	  zneigh = MAX(zneigh,boxzlo);
-	  kneigh -= nz;
-	}
+        if (kneigh < 0) {
+          zneigh += zprd;
+          kneigh += nz;
+        }
+        if (kneigh >= nz) {
+          zneigh -= zprd;
+          zneigh = MAX(zneigh,boxzlo);
+          kneigh -= nz;
+        }
       }
+      //Trying to add thermally insulated option, will also affect microstructure simulation
+      if (thermally_insulated) {
+          if ((xneigh < boxxlo || xneigh >= boxxhi) || (yneigh < boxylo || yneigh >= boxyhi) || (zneigh < boxzlo || zneigh >= boxzhi)) {
+              m = siteijk[i][3];
+              ineigh = siteijk[i][0];
+              jneigh = siteijk[i][1];
+              kneigh = siteijk[i][2];
+              mneigh = cmap[m][j][3];
+              tagint one = 1;   // use this to avoid int overflow in gid calculation
+              gid = one * (kneigh - zlo) * (yhi - ylo + 1) * (xhi - xlo + 1) * nbasis +
+                  one * (jneigh - ylo) * (xhi - xlo + 1) * nbasis + one * (ineigh - xlo) * nbasis +
+                  mneigh + 1;
+              idneigh[i][numneigh[i]++] = gid;
+              continue;
+          }
 
       // discard neighs that are outside non-periodic box or region
 
       if (nonperiodic) {
-	if (!xperiodic && (xneigh < boxxlo || xneigh >= boxxhi)) continue;
-	if (!yperiodic && (yneigh < boxylo || yneigh >= boxyhi)) continue;
-	if (!zperiodic && (zneigh < boxzlo || zneigh >= boxzhi)) continue;
+        if (!xperiodic && (xneigh < boxxlo || xneigh >= boxxhi)) continue;
+        if (!yperiodic && (yneigh < boxylo || yneigh >= boxyhi)) continue;
+        if (!zperiodic && (zneigh < boxzlo || zneigh >= boxzhi)) continue;
       }
-      if (style == REGION &&
-	  domain->regions[nregion]->match(xneigh,yneigh,zneigh) == 0) continue;
+      
+      }
+
+      if (style == REGION && domain->regions[nregion]->match(xneigh,yneigh,zneigh) == 0) continue;
 
       // gid = global ID of neighbor
       // calculated in same manner that structured_lattice() generated IDs
@@ -647,369 +645,6 @@ void CreateSites::structured_connectivity()
 }
 
 /* ----------------------------------------------------------------------
-   generate random sites
-   each proc keeps those in its sub-domain
- ------------------------------------------------------------------------- */
-
-void CreateSites::random_sites()
-{
-  int dimension = domain->dimension;
-  tagint nrandom = domain->lattice->nrandom;
-
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
-
-  double boxxlo = domain->boxxlo;
-  double boxylo = domain->boxylo;
-  double boxzlo = domain->boxzlo;
-
-  double subxlo = domain->subxlo;
-  double subylo = domain->subylo;
-  double subzlo = domain->subzlo;
-  double subxhi = domain->subxhi;
-  double subyhi = domain->subyhi;
-  double subzhi = domain->subzhi;
-
-  int **iarray = app->iarray;
-  double **darray = app->darray;
-
-  // generate xyz coords and store them with site ID
-  // iterate until atom is within region
-  // if coords are in my sub-domain, create site
-
-  int nlocal;
-  double x,y,z;
-
-  double seed = ranmaster->uniform();
-  RandomPark *random = new RandomPark(seed);
-
-  for (tagint n = 1; n <= nrandom; n++) {
-    while (1) {
-      x = boxxlo + xprd*random->uniform();
-      y = boxylo + yprd*random->uniform();
-      z = boxzlo + zprd*random->uniform();
-      if (dimension < 2) y = 0.0;
-      if (dimension < 3) z = 0.0;
-      if (style == REGION) {
-	if (domain->regions[nregion]->match(x,y,z) == 1) break;
-      } else break;
-    }
-
-    if (x < subxlo || x >= subxhi || 
-	y < subylo || y >= subyhi || 
-	z < subzlo || z >= subzhi) continue;
-    
-    if (latticeflag) applattice->add_site(n,x,y,z);
-    else appoff->add_site(n,x,y,z);
-
-    nlocal = app->nlocal;
-    if (valueflag == IARRAY) iarray[valueindex][nlocal] = ivalue;
-    else if (valueflag == DARRAY) darray[valueindex][nlocal] = dvalue;
-  }
-
-  delete random;
-
-  // print site count
-  // check if sum of nlocal = nglobal
-
-  tagint nbig = app->nlocal;
-  MPI_Allreduce(&nbig,&app->nglobal,1,MPI_SPK_TAGINT,MPI_SUM,world);
-
-  if (domain->me == 0) {
-    if (screen)
-      fprintf(screen,"  " TAGINT_FORMAT " sites\n",app->nglobal);
-    if (logfile)
-      fprintf(logfile,"  " TAGINT_FORMAT " sites\n",app->nglobal);
-  }
-
-  if (app->nglobal != nrandom)
-    error->all(FLERR,"Did not create correct number of sites");
-}
-
-/* ----------------------------------------------------------------------
-   infer connectivity from neighbors within cutoff distance
-   respect non-periodic boundaries
-   only called for on-lattice models
- ------------------------------------------------------------------------- */
-
-void CreateSites::random_connectivity()
-{
-  int i,j;
-
-  int me = domain->me;
-  int nprocs = domain->nprocs;
-  int dimension = domain->dimension;
-  int xperiodic = domain->xperiodic;
-  int yperiodic = domain->yperiodic;
-  int zperiodic = domain->zperiodic;
-
-  int nlocal = app->nlocal;
-  double cutoff = domain->lattice->cutoff;
-
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
-  double xhalf = 0.5 * xprd;
-  double yhalf = 0.5 * yprd;
-  double zhalf = 0.5 * zprd;
-
-  double subxlo = domain->subxlo;
-  double subylo = domain->subylo;
-  double subzlo = domain->subzlo;
-  double subxhi = domain->subxhi;
-  double subyhi = domain->subyhi;
-  double subzhi = domain->subzhi;
-
-  tagint *id = app->id;
-  double **xyz = app->xyz;
-
-  // put all owned sites within cutoff of subdomain face into buf
-
-  int maxbuf = 0;
-  Site *bufsend = NULL;
-  int nsend = 0;
-
-  for (i = 0; i < nlocal; i++) {
-    if (xyz[i][0] - subxlo <= cutoff || subxhi - xyz[i][0] <= cutoff ||
-	xyz[i][1] - subylo <= cutoff || subyhi - xyz[i][1] <= cutoff ||
-	xyz[i][2] - subzlo <= cutoff || subzhi - xyz[i][2] <= cutoff) {
-      if (nsend == maxbuf) {
-	maxbuf += DELTABUF;
-	bufsend = (Site *) 
-	  memory->srealloc(bufsend,maxbuf*sizeof(Site),"create:bufsend");
-      }
-      bufsend[nsend].id = id[i];
-      bufsend[nsend].proc = me;
-      bufsend[nsend].x = xyz[i][0];
-      bufsend[nsend].y = xyz[i][1];
-      bufsend[nsend].z = xyz[i][2];
-      nsend++;
-    }
-  }
-
-  // setup ring of procs
-
-  int next = me + 1;
-  int prev = me -1; 
-  if (next == nprocs) next = 0;
-  if (prev < 0) prev = nprocs - 1;
-
-  // maxsend = max send sites on any proc
-
-  int maxsize;
-  MPI_Allreduce(&nsend,&maxsize,1,MPI_INT,MPI_MAX,world);
-
-  bufsend = (Site *) 
-    memory->srealloc(bufsend,maxsize*sizeof(Site),"create:bufsend");
-  Site *bufcopy = (Site *) 
-    memory->smalloc(maxsize*sizeof(Site),"create:bufcopy");
-
-  // cycle send list around ring of procs back to self
-  // when receive it, extract any sites within cutoff of my sub-box
-  // test for within cutoff:
-  //   for each dim:
-  //     test if site coord or 2 periodic images are between cutoff bounds
-  //     all 3 dims must satisfy this criterion to keep site as potential ghost
-  // loop < nprocs-1 skips owned sites since never recv them
-
-  MPI_Request request;
-  MPI_Status status;
-
-  maxbuf = 0;
-  Site *bufrecv = NULL;
-  int nrecv = 0;
-
-  int flag;
-  double coord,coordlo,coordhi;
-  int size = nsend;
-
-  for (int loop = 0; loop < nprocs-1; loop++) {
-    if (me != next) {
-      MPI_Irecv(bufcopy,maxsize*sizeof(Site),MPI_CHAR,prev,0,world,&request);
-      MPI_Send(bufsend,size*sizeof(Site),MPI_CHAR,next,0,world);
-      MPI_Wait(&request,&status);
-      MPI_Get_count(&status,MPI_CHAR,&size);
-      size /= sizeof(Site);
-      memcpy(bufsend,bufcopy,size*sizeof(Site));
-    }
-    for (i = 0; i < size; i++) {
-      coord = bufsend[i].x;
-      coordlo = bufsend[i].x - xprd;
-      coordhi = bufsend[i].x + xprd;
-      flag = 0;
-      if (coord >= subxlo-cutoff && coord <= subxhi+cutoff) flag = 1;
-      if (coordlo >= subxlo-cutoff && coordlo <= subxhi+cutoff) flag = 1;
-      if (coordhi >= subxlo-cutoff && coordhi <= subxhi+cutoff) flag = 1;
-      if (flag == 0) continue;
-
-      coord = bufsend[i].y;
-      coordlo = bufsend[i].y - yprd;
-      coordhi = bufsend[i].y + yprd;
-      flag = 0;
-      if (coord >= subylo-cutoff && coord <= subyhi+cutoff) flag = 1;
-      if (coordlo >= subylo-cutoff && coordlo <= subyhi+cutoff) flag = 1;
-      if (coordhi >= subylo-cutoff && coordhi <= subyhi+cutoff) flag = 1;
-      if (flag == 0) continue;
-
-      coord = bufsend[i].z;
-      coordlo = bufsend[i].z - zprd;
-      coordhi = bufsend[i].z + zprd;
-      flag = 0;
-      if (coord >= subzlo-cutoff && coord <= subzhi+cutoff) flag = 1;
-      if (coordlo >= subzlo-cutoff && coordlo <= subzhi+cutoff) flag = 1;
-      if (coordhi >= subzlo-cutoff && coordhi <= subzhi+cutoff) flag = 1;
-      if (flag == 0) continue;
-
-      if (nrecv == maxbuf) {
-	maxbuf += DELTABUF;
-	bufrecv = (Site *) memory->srealloc(bufrecv,maxbuf*sizeof(Site),
-					     "create:bufrecv");
-      }
-      bufrecv[nrecv].id = bufsend[i].id;
-      bufrecv[nrecv].proc = bufsend[i].proc;
-      bufrecv[nrecv].x = bufsend[i].x;
-      bufrecv[nrecv].y = bufsend[i].y;
-      bufrecv[nrecv].z = bufsend[i].z;
-      nrecv++;
-    }
-  }
-
-  // count max neighbors thru expensive N^2 loop
-  // 1st loop over owned sites
-  // 2nd loop over owned sites and received sites
-  // NOTE: would be faster to bin owned + received sites
-  // each time a neighbor is found within cutoff with PBC, increment numneigh
-
-  int *numneigh = applattice->numneigh;
-  for (i = 0; i < nlocal; i++) numneigh[i] = 0;
-
-  double dx,dy,dz,rsq;
-  double cutsq = cutoff*cutoff;
-
-  for (i = 0; i < nlocal; i++) {
-    for (j = i+1; j < nlocal; j++) {
-      dx = xyz[i][0] - xyz[j][0];
-      dy = xyz[i][1] - xyz[j][1];
-      dz = xyz[i][2] - xyz[j][2];
-
-      if (xperiodic && fabs(dx) > xhalf) {
-	if (dx < 0.0) dx += xprd;
-	else dx -= xprd;
-      }
-      if (yperiodic && fabs(dy) > yhalf) {
-	if (dy < 0.0) dy += yprd;
-	else dy -= yprd;
-      }
-      if (zperiodic && fabs(dz) > zhalf) {
-	if (dz < 0.0) dz += zprd;
-	else dz -= zprd;
-      }
-
-      rsq = dx*dx + dy*dy + dz*dz;
-      if (rsq < cutsq) {
-	numneigh[i]++;
-	numneigh[j]++;
-      }
-    }
-
-    for (j = 0; j < nrecv; j++) {
-      dx = xyz[i][0] - bufrecv[j].x;
-      dy = xyz[i][1] - bufrecv[j].y;
-      dz = xyz[i][2] - bufrecv[j].z;
-
-      if (xperiodic && fabs(dx) > xhalf) {
-	if (dx < 0.0) dx += xprd;
-	else dx -= xprd;
-      }
-      if (yperiodic && fabs(dy) > yhalf) {
-	if (dy < 0.0) dy += yprd;
-	else dy -= yprd;
-      }
-      if (zperiodic && fabs(dz) > zhalf) {
-	if (dz < 0.0) dz += zprd;
-	else dz -= zprd;
-      }
-
-      rsq = dx*dx + dy*dy + dz*dz;
-      if (rsq < cutsq) numneigh[i]++;
-    }
-  }
-
-  // set maxneigh and allocate idneigh array to store connectivity
-
-  int tmp = 0;
-  for (i = 0; i < nlocal; i++) tmp = MAX(tmp,numneigh[i]);
-  MPI_Allreduce(&tmp,&maxneigh,1,MPI_INT,MPI_MAX,world);
-  if (maxneigh == 0) error->all(FLERR,"Random lattice has no connectivity");
-
-  memory->create(idneigh,app->nlocal,maxneigh,"create:idneigh");
-
-  // generate neighbor connectivity thru same expensive N^2 loop
-  // 1st loop over owned sites
-  // 2nd loop over owned sites and received sites
-  // NOTE: would be faster to bin owned + received sites
-  // each time a neighbor is found within cutoff with PBC, increment numneigh
-
-  for (i = 0; i < nlocal; i++) numneigh[i] = 0;
-
-  for (i = 0; i < nlocal; i++) {
-    for (j = i+1; j < nlocal; j++) {
-      dx = xyz[i][0] - xyz[j][0];
-      dy = xyz[i][1] - xyz[j][1];
-      dz = xyz[i][2] - xyz[j][2];
-
-      if (xperiodic && fabs(dx) > xhalf) {
-	if (dx < 0.0) dx += xprd;
-	else dx -= xprd;
-      }
-      if (yperiodic && fabs(dy) > yhalf) {
-	if (dy < 0.0) dy += yprd;
-	else dy -= yprd;
-      }
-      if (zperiodic && fabs(dz) > zhalf) {
-	if (dz < 0.0) dz += zprd;
-	else dz -= zprd;
-      }
-
-      rsq = dx*dx + dy*dy + dz*dz;
-      if (rsq < cutsq) {
-	idneigh[i][numneigh[i]++] = id[j];
-	idneigh[j][numneigh[j]++] = id[i];
-      }
-    }
-
-    for (j = 0; j < nrecv; j++) {
-      dx = xyz[i][0] - bufrecv[j].x;
-      dy = xyz[i][1] - bufrecv[j].y;
-      dz = xyz[i][2] - bufrecv[j].z;
-
-      if (xperiodic && fabs(dx) > xhalf) {
-	if (dx < 0.0) dx += xprd;
-	else dx -= xprd;
-      }
-      if (yperiodic && fabs(dy) > yhalf) {
-	if (dy < 0.0) dy += yprd;
-	else dy -= yprd;
-      }
-      if (zperiodic && fabs(dz) > zhalf) {
-	if (dz < 0.0) dz += zprd;
-	else dz -= zprd;
-      }
-
-      rsq = dx*dx + dy*dy + dz*dz;
-      if (rsq < cutsq) idneigh[i][numneigh[i]++] = bufrecv[j].id;
-    }
-  }
-
-  // clean up
-
-  memory->sfree(bufsend);
-  memory->sfree(bufcopy);
-  memory->sfree(bufrecv);
-}
-
-/* ----------------------------------------------------------------------
    set maxneigh and initialize idneigh when lattice created via read_sites
    called from read_sites when it reads in sites and neighbors
  ------------------------------------------------------------------------- */
@@ -1021,7 +656,7 @@ void CreateSites::read_sites(AppLattice *apl)
   maxneigh = apl->maxneigh;
   memory->create(idneigh,app->nlocal,maxneigh,"create:idneigh");
 
-  int *numneigh = apl->numneigh;
+  uint8_t *numneigh = apl->numneigh;
   int **neighbor = apl->neighbor;
   int nlocal = app->nlocal;
 
@@ -1048,7 +683,8 @@ void CreateSites::ghosts_from_connectivity(AppLattice *apl, int delpropensity)
   tagint idglobal,idghost,idrecv;
   double x,y,z;
   tagint *id;
-  int *numneigh,**neighbor;
+  uint8_t *numneigh;
+  int **neighbor;
   double **xyz;
 
   MyHash hash;
@@ -1136,30 +772,30 @@ void CreateSites::ghosts_from_connectivity(AppLattice *apl, int delpropensity)
 
     for (int loop = 0; loop < nprocs; loop++) {
       if (me != next) {
-	MPI_Irecv(bufcopy,maxsize,MPI_DOUBLE,prev,0,world,&request);
-	MPI_Send(buf,size,MPI_DOUBLE,next,0,world);
-	MPI_Wait(&request,&status);
-	MPI_Get_count(&status,MPI_DOUBLE,&size);
-	nsite = size / nchunk;
-	memcpy(buf,bufcopy,size*sizeof(double));
+        MPI_Irecv(bufcopy,maxsize,MPI_DOUBLE,prev,0,world,&request);
+        MPI_Send(buf,size,MPI_DOUBLE,next,0,world);
+        MPI_Wait(&request,&status);
+        MPI_Get_count(&status,MPI_DOUBLE,&size);
+        nsite = size / nchunk;
+        memcpy(buf,bufcopy,size*sizeof(double));
       }
       for (int i = 0; i < nsite; i++) {
-	m = i * nchunk;
-	idrecv = static_cast<tagint> (buf[m++]);
-	proc = static_cast<int> (buf[m++]);
-	if (proc >= 0) continue;
-	loc = hash.find(idrecv);
-	if (loc == hash.end() || loc->second >= nlocal) continue;
+        m = i * nchunk;
+        idrecv = static_cast<tagint> (buf[m++]);
+        proc = static_cast<int> (buf[m++]);
+        if (proc >= 0) continue;
+        loc = hash.find(idrecv);
+        if (loc == hash.end() || loc->second >= nlocal) continue;
 
-	j = loc->second;
-	buf[m-1] = me;
-	buf[m++] = j;
-	buf[m++] = xyz[j][0];
-	buf[m++] = xyz[j][1];
-	buf[m++] = xyz[j][2];
-	buf[m++] = numneigh[j];
-	for (k = 0; k < numneigh[j]; k++)
-	  buf[m++] = idneigh[j][k];
+        j = loc->second;
+        buf[m-1] = me;
+        buf[m++] = j;
+        buf[m++] = xyz[j][0];
+        buf[m++] = xyz[j][1];
+        buf[m++] = xyz[j][2];
+        buf[m++] = numneigh[j];
+        for (k = 0; k < numneigh[j]; k++)
+          buf[m++] = idneigh[j][k];
       }
     }
 
@@ -1189,7 +825,7 @@ void CreateSites::ghosts_from_connectivity(AppLattice *apl, int delpropensity)
       j = nlocal + npreviousghost + i;
       numneigh[j] = static_cast<int> (buf[m++]);
       for (k = 0; k < numneigh[j]; k++)
-	idneigh[j][k] = static_cast<tagint> (buf[m++]);
+	      idneigh[j][k] = static_cast<tagint> (buf[m++]);
     }
 
     // clean up
@@ -1215,12 +851,14 @@ void CreateSites::ghosts_from_connectivity(AppLattice *apl, int delpropensity)
       idglobal = idneigh[i][j];
       loc = hash.find(idglobal);
       if (loc != hash.end()) {
-	neighbor[i][j] = loc->second;
-	j++;
-      } else if (i >= nlocal+npreviousghost) {
-	numneigh[i]--;
-	for (k = j; k < numneigh[i]; k++) idneigh[i][k] = idneigh[i][k+1];
-      } else error->one(FLERR,"Ghost connection was not found");
+        neighbor[i][j] = loc->second;
+        j++;
+      } 
+      else if (i >= nlocal+npreviousghost) {
+        numneigh[i]--;
+        for (k = j; k < numneigh[i]; k++) idneigh[i][k] = idneigh[i][k+1];
+      } 
+      else error->one(FLERR,"Ghost connection was not found");
     }
   }
 
@@ -1233,41 +871,33 @@ void CreateSites::ghosts_from_connectivity(AppLattice *apl, int delpropensity)
 
 void CreateSites::offsets(double **basis)
 {
-  if (latstyle == LINE_2N) {
-    cmap[0][0][0] = -1; cmap[0][0][1] = 0; cmap[0][0][2] = 0; cmap[0][0][3] = 0;
-    cmap[0][1][0] =  1; cmap[0][1][1] = 0; cmap[0][1][2] = 0; cmap[0][1][3] = 0;
-  }
-
-  if (latstyle == SQ_4N)
-    for (int m = 0; m < nbasis; m++)
-      offsets_2d(m,basis,xlattice,xlattice,maxneigh,cmap[m]);
-  else if (latstyle == SQ_8N)
-    for (int m = 0; m < nbasis; m++)
-      offsets_2d(m,basis,xlattice,sqrt(2.0)*xlattice,maxneigh,cmap[m]);
-  else if (latstyle == TRI)
-    for (int m = 0; m < nbasis; m++)
-      offsets_2d(m,basis,xlattice,xlattice,maxneigh,cmap[m]);
-
-  if (latstyle == SC_6N)
+  if (latstyle == SC_6N){
     for (int m = 0; m < nbasis; m++)
       offsets_3d(m,basis,xlattice,xlattice,maxneigh,cmap[m]);
-  else if (latstyle == SC_26N)
+  }
+  else if (latstyle == SC_26N){
+    fprintf(screen,"sc_26");
     for (int m = 0; m < nbasis; m++)
       offsets_3d(m,basis,xlattice,sqrt(3.0)*xlattice,maxneigh,cmap[m]);
-  else if (latstyle == FCC)
+  }
+  else if (latstyle == FCC) {
+    fprintf(screen,"FCC");
     for (int m = 0; m < nbasis; m++)
       offsets_3d(m,basis,sqrt(2.0)/2.0*xlattice,sqrt(2.0)/2.0*xlattice,
 		 maxneigh,cmap[m]);
-  else if (latstyle == BCC)
+  }
+  else if (latstyle == BCC) {
     for (int m = 0; m < nbasis; m++)
       offsets_3d(m,basis,sqrt(3.0)/2.0*xlattice,sqrt(3.0)/2.0*xlattice,
 		 maxneigh,cmap[m]);
-  else if (latstyle == DIAMOND)
+  }
+  else if (latstyle == DIAMOND) {
     for (int m = 0; m < nbasis; m++)
       offsets_3d(m,basis,sqrt(3.0)/4.0*xlattice,sqrt(3.0)/4.0*xlattice,
 		 maxneigh,cmap[m]);
-
+  }
   else if (latstyle == FCC_OCTA_TETRA) {
+    fprintf(screen,"FCC_OCTA_TETRA");
     for (int m = 0; m < 4; m++) {
       offsets_3d(m,basis,sqrt(2.0)/2.0*xlattice,sqrt(2.0)/2.0*xlattice,
 		 12,&cmap[m][0]);
@@ -1292,40 +922,6 @@ void CreateSites::offsets(double **basis)
 
 /* ---------------------------------------------------------------------- */
 
-void CreateSites::offsets_2d(int ibasis, double **basis, 
-                             double cutlo, double cuthi,
-                             int ntarget, int **cmapone)
-{
-  int i,j,m,n;
-  double x0,y0,delx,dely,r;
-
-  n = 0;
-  x0 = basis[ibasis][0] * xlattice;
-  y0 = basis[ibasis][1] * ylattice;
-  for (i = -1; i <= 1; i++) {
-    for (j = -1; j <= 1; j++) {
-      for (m = 0; m < nbasis; m++) {
-	delx = (i+basis[m][0])*xlattice - x0;
-	dely = (j+basis[m][1])*ylattice - y0;
-	r = sqrt(delx*delx + dely*dely);
-	if (r > cutlo-EPSILON && r < cuthi+EPSILON) {
-	  if (n == ntarget) 
-            error->all(FLERR,"Incorrect lattice neighbor count");
-	  cmapone[n][0] = i;
-	  cmapone[n][1] = j;
-	  cmapone[n][2] = 0;
-	  cmapone[n][3] = m;
-	  n++;
-	}
-      }
-    }
-  }
-
-  if (n != ntarget) error->all(FLERR,"Incorrect lattice neighbor count");
-}
-
-/* ---------------------------------------------------------------------- */
-
 void CreateSites::offsets_3d(int ibasis, double **basis, 
                              double cutlo, double cuthi, 
                              int ntarget, int **cmapone)
@@ -1337,27 +933,36 @@ void CreateSites::offsets_3d(int ibasis, double **basis,
   x0 = basis[ibasis][0] * xlattice;
   y0 = basis[ibasis][1] * ylattice;
   z0 = basis[ibasis][2] * zlattice;
+//  fprintf(screen, "x0=%f y0=%f z0=%f\n",x0,y0,z0);
+//  fprintf(screen, "dx=%f dy=%f dz=%f\n",xlattice,ylattice,zlattice);
+//  fprintf(screen, "cutlo=%f cuthi=%f\n",cutlo,cuthi);
   for (i = -1; i <= 1; i++) {
     for (j = -1; j <= 1; j++) {
       for (k = -1; k <= 1; k++) {
-	for (m = 0; m < nbasis; m++) {
-	  delx = (i+basis[m][0])*xlattice - x0;
-	  dely = (j+basis[m][1])*ylattice - y0;
-	  delz = (k+basis[m][2])*zlattice - z0;
-	  r = sqrt(delx*delx + dely*dely + delz*delz);
-	  if (r > cutlo-EPSILON && r < cuthi+EPSILON) {
-	    if (n == ntarget) 
-              error->all(FLERR,"Incorrect lattice neighbor count");
-	    cmapone[n][0] = i;
-	    cmapone[n][1] = j;
-	    cmapone[n][2] = k;
-	    cmapone[n][3] = m;
-	    n++;
-	  }
-	}
+        for (m = 0; m < nbasis; m++) {
+          delx = (i+basis[m][0])*xlattice - x0;
+          dely = (j+basis[m][1])*ylattice - y0;
+          delz = (k+basis[m][2])*zlattice - z0;
+          r = sqrt(delx*delx + dely*dely + delz*delz);
+          //fprintf(screen, "r=%f\n",r);
+          if (r >= cutlo-EPSILON && r < cuthi+EPSILON) {
+            if (n == ntarget) {
+              fprintf(screen, "n=%i,ntarget=%i\n",n,ntarget);
+              error->all(FLERR,"Incorrect lattice neighbor count: Too many found");
+            }
+            cmapone[n][0] = i;
+            cmapone[n][1] = j;
+            cmapone[n][2] = k;
+            cmapone[n][3] = m;
+            n++;
+          }
+        }
       }
     }
   }
 
-  if (n != ntarget) error->all(FLERR,"Incorrect lattice neighbor count");
+  if (n != ntarget) {
+    fprintf(screen, "n=%i,ntarget=%i\n",n,ntarget);
+    error->all(FLERR,"Incorrect lattice neighbor count: Not enough found");
+  }
 }

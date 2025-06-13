@@ -30,6 +30,8 @@ class Domain : protected Pointers {
   int dimension;                    // 1,2,3
   int nonperiodic;                  // 0 = periodic in all dims
                                     // 1 = non-periodic in any dim
+  int therminsulated;                  // 0 = periodic or non-periodic
+                                    // 1 = thermally insulated
   int xperiodic,yperiodic,zperiodic;  // 0 = non-periodic, 1 = periodic
   int periodicity[3];               // xyz periodicity as array
 
@@ -54,9 +56,8 @@ class Domain : protected Pointers {
   int find_region(char *);
   void set_boundary(int, char **);
 
-  void procs2domain_1d();
-  void procs2domain_2d();
   void procs2domain_3d();
+  void procs2domain_additive();
 
   void pbcwrap(double *);
   void pbcshift(double *, double *);

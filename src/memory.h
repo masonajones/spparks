@@ -24,6 +24,7 @@ class Memory : protected Pointers {
 
   void *smalloc(bigint n, const char *);
   void *srealloc(void *, bigint n, const char *);
+  void *aligned_realloc(void *, bigint nbytes_new, bigint nbytes_old, const char *);
   void sfree(void *);
   void fail(const char *);
 
@@ -66,6 +67,22 @@ class Memory : protected Pointers {
 
   template <typename TYPE>
     TYPE **grow(TYPE **&array, int n, const char *name) {fail(name);}
+    
+/* ----------------------------------------------------------------------
+   grow aligned 1d array
+------------------------------------------------------------------------- */
+
+  template <typename TYPE>
+    TYPE *aligned_grow(TYPE *&array, int n_new, int n_old, const char *name) 
+    {
+      if (array == NULL) return create(array,n_new,name);
+      
+      bigint nbytes_new = ((bigint) sizeof(TYPE)) * n_new;
+      bigint nbytes_old = ((bigint) sizeof(TYPE)) * n_old;
+      array = (TYPE *) aligned_realloc(array,nbytes_new,nbytes_old,name);
+      return array;
+    }
+
 
 /* ----------------------------------------------------------------------
    destroy a 1d array 
@@ -119,8 +136,8 @@ class Memory : protected Pointers {
       
       bigint n = 0;
       for (int i = 0; i < n1; i++) {
-	array[i] = &data[n];
-	n += n2;
+        array[i] = &data[n];
+        n += n2;
       }
       return array;
     }
@@ -146,8 +163,8 @@ class Memory : protected Pointers {
       
       bigint n = 0;
       for (int i = 0; i < n1; i++) {
-	array[i] = &data[n];
-	n += n2;
+        array[i] = &data[n];
+        n += n2;
       }
       return array;
     }

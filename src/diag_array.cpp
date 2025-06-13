@@ -23,9 +23,7 @@
 #include "diag_array.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "comm_lattice.h"
-#include "comm_off_lattice.h"
 #include "error.h"
 #include "memory.h"
 
@@ -39,7 +37,6 @@ DiagArray::DiagArray(SPPARKS *spk, int narg, char **arg) :
   Diag(spk,narg,arg)
 {
   if (app->appclass == App::LATTICE) latticeflag = 1;
-  else if (app->appclass == App::OFF_LATTICE) latticeflag = 0;
   else error->all(FLERR,"Diag style incompatible with app style");
   
   // check the number of arguments
@@ -104,7 +101,6 @@ DiagArray::~DiagArray()
 void DiagArray::init()
 {
   if (latticeflag) applattice = (AppLattice *) app;
-  else appofflattice = (AppOffLattice *) app;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -128,11 +124,7 @@ void DiagArray::compute()
     applattice->comm->all();
     iptr = applattice->iarray;
     dptr = applattice->darray;
-  } else {
-    appofflattice->comm->all();
-    iptr = appofflattice->iarray;
-    dptr = appofflattice->darray;
-  }
+  } 
   
   for (int i=0; i<nvals; i++) {
     

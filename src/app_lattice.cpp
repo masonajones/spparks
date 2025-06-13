@@ -77,7 +77,7 @@ AppLattice::AppLattice(SPPARKS *spk, int narg, char **arg) : App(spk,narg,arg)
   index = NULL;
 
   maxneigh = 0;
-  numneigh = NULL;
+  //numneigh = NULL;
   neighbor = NULL;
 
   dt_sweep = 0.0;
@@ -110,6 +110,7 @@ AppLattice::~AppLattice()
   memory->destroy(index);
 
   memory->destroy(numneigh);
+  //numneigh.clear();
   memory->destroy(neighbor);
 }
 
@@ -724,49 +725,6 @@ void AppLattice::iterate_app_update_only(double stoptime,double dt)
   }
 }
 
-/* ----------------------------------------------------------------------
-   update propensity of all KMC sector border sites
-   called from diffusion app when doing batch depositions
- ------------------------------------------------------------------------- */
-
-void AppLattice::update_kmc_sector_border_propensities()
-{
-  int i,isite;
-
-  for (int iset = 0; iset < nset; iset++) {
-    solve = set[iset].solve;
-    propensity = set[iset].propensity;
-    i2site = set[iset].i2site;
-    
-    int *bsites = set[iset].bsites;
-    int *border = set[iset].border;
-    int nborder = set[iset].nborder;
-    
-    int nsites = 0;
-    for (int m = 0; m < nborder; m++) {
-      i = border[m];
-      isite = i2site[i];
-      bsites[nsites++] = isite;
-      propensity[isite] = site_propensity(i);
-    }
-      
-    solve->update(nsites,bsites,propensity);
-  }
-}
-
-/* ----------------------------------------------------------------------
-   identify which set a lattice site M is in
-   has to be in exactly one set
-   called from diffusion app when doing batch depositions
- ------------------------------------------------------------------------- */
-
-int AppLattice::whichset(int m)
-{
-  for (int iset = 0; iset < nset; iset++)
-    if (set[iset].i2site[m] >= 0) return iset;
-  return -1;    // should never reach this line
-}
-
 /* ---------------------------------------------------------------------- */
 
 void AppLattice::sweep_nomask_nostrict(int n, int *list)
@@ -1234,6 +1192,8 @@ void AppLattice::connected_ghosts(int i, int* cluster_ids,
 
 void AppLattice::grow(int n)
 {
+  int static n_prev = 0;
+  
   if (n == 0) nmax += DELTA;
   else nmax = n;
   if (nmax < 0 || nmax > MAXSMALLINT)
@@ -1245,13 +1205,30 @@ void AppLattice::grow(int n)
   memory->grow(index,nmax,"app:index");
 
   memory->grow(numneigh,nmax,"app:numneigh");
+  //numneigh = (uint8_t *) memory->smalloc(nmax,"app:numneigh");
+//  numneigh.reserve(nmax);
+//  numneigh.resize(nmax);
+//  if(numneigh.capacity()>nmax) {
+//    fprintf(screen,"shrinking vector memory footprint\n");
+//    numneigh.shrink_to_fit();
+//    }
   if (maxneigh) memory->grow(neighbor,nmax,maxneigh,"app:neighbor");
-
-  for (int i = 0; i < ninteger; i++)
-    memory->grow(iarray[i],nmax,"app:iarray");
-  for (int i = 0; i < ndouble; i++)
-    memory->grow(darray[i],nmax,"app:darray");
-
+  
+  // NOTE: This isn't very robust/what I actually want to check, but it's better than nothing
+  if (nmax>n_prev) {
+    for (int i = 0; i < ninteger; i++)
+      memory->aligned_grow(iarray[i],nmax,n_prev,"app:iarray");
+    for (int i = 0; i < ndouble; i++)
+      memory->aligned_grow(darray[i],nmax,n_prev,"app:darray");
+  }
+  else {
+    for (int i = 0; i < ninteger; i++)
+      memory->grow(iarray[i],nmax,"app:iarray");
+    for (int i = 0; i < ndouble; i++)
+      memory->grow(darray[i],nmax,"app:darray");
+  }
+  n_prev = nmax;
+  
   grow_app();
 }
 

@@ -17,9 +17,7 @@
 #include "diag_energy.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "comm_lattice.h"
-#include "comm_off_lattice.h"
 #include "error.h"
 
 using namespace SPPARKS_NS;
@@ -30,7 +28,7 @@ DiagEnergy::DiagEnergy(SPPARKS *spk, int narg, char **arg) :
   Diag(spk,narg,arg)
 {
   if (app->appclass == App::LATTICE) latticeflag = 1;
-  else if (app->appclass == App::OFF_LATTICE) latticeflag = 0;
+
   else error->all(FLERR,"Diag style incompatible with app style");
 }
 
@@ -39,7 +37,6 @@ DiagEnergy::DiagEnergy(SPPARKS *spk, int narg, char **arg) :
 void DiagEnergy::init()
 {
   if (latticeflag) applattice = (AppLattice *) app;
-  else appofflattice = (AppOffLattice *) app;
 
   energy = 0.0;
 }
@@ -50,13 +47,10 @@ void DiagEnergy::compute()
 {
   int nlocal = app->nlocal;
   if (latticeflag) applattice->comm->all();
-  else appofflattice->comm->all();
 
   double etmp = 0.0;
   if (latticeflag)
     for (int i = 0; i < nlocal; i++) etmp += applattice->site_energy(i);
-  else
-    for (int i = 0; i < nlocal; i++) etmp += appofflattice->site_energy(i);
 
   MPI_Allreduce(&etmp,&energy,1,MPI_DOUBLE,MPI_SUM,world);
 }

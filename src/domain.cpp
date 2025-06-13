@@ -141,15 +141,27 @@ int Domain::find_region(char *name)
 void Domain::set_boundary(int narg, char **arg)
 {
   if (narg != 3) error->all(FLERR,"Illegal boundary command");
-
+  therminsulated = 0;
   if (strcmp(arg[0],"n") == 0) xperiodic = 0;
   else if (strcmp(arg[0],"p") == 0) xperiodic = 1;
+  else if (strcmp(arg[0], "t") == 0) {
+      xperiodic = 0;
+      therminsulated = 1;
+  }
   else error->all(FLERR,"Illegal boundary command");
   if (strcmp(arg[1],"n") == 0) yperiodic = 0;
   else if (strcmp(arg[1],"p") == 0) yperiodic = 1;
+  else if (strcmp(arg[1], "t") == 0) {
+      yperiodic = 0;
+      therminsulated = 1;
+  }
   else error->all(FLERR,"Illegal boundary command");
   if (strcmp(arg[2],"n") == 0) zperiodic = 0;
   else if (strcmp(arg[2],"p") == 0) zperiodic = 1;
+  else if (strcmp(arg[2], "t") == 0) {
+      zperiodic = 0;
+      therminsulated = 1;
+  }
   else error->all(FLERR,"Illegal boundary command");
 
   periodicity[0] = xperiodic;
@@ -157,100 +169,13 @@ void Domain::set_boundary(int narg, char **arg)
   periodicity[2] = zperiodic;
 
   nonperiodic = 0;
+
   if (xperiodic == 0 || yperiodic == 0 || zperiodic == 0) nonperiodic = 1;
 
   if (nonperiodic && app->appclass != App::LATTICE)
     error->all(FLERR,"Boundary command currently only supported by on-lattice apps");
 }
 
-/* ----------------------------------------------------------------------
-   assign nprocs to 1d box as equal partitions
-------------------------------------------------------------------------- */
-
-void Domain::procs2domain_1d()
-{
-  if (user_procgrid[0] || user_procgrid[1] || user_procgrid[2]) {
-    if (user_procgrid[1] != 1 || user_procgrid[2] != 1)
-      error->all(FLERR,"App style proc count is not valid for 1d simulation");
-    procgrid[0] = user_procgrid[0];
-  } else {
-    procgrid[0] = nprocs;
-  }
-
-  procgrid[1] = procgrid[2] = 1;
-
-  myloc[0] = me;
-  myloc[1] = myloc[2] = 0;
-
-  subxlo = boxxlo + myloc[0] * xprd/procgrid[0];
-  if (myloc[0] < procgrid[0]-1) 
-    subxhi = boxxlo + (myloc[0]+1) * xprd/procgrid[0];
-  else subxhi = boxxhi;
-
-  subylo = boxylo;
-  subyhi = boxyhi;
-  subzlo = boxzlo;
-  subzhi = boxzhi;
-}
-
-/* ----------------------------------------------------------------------
-   assign nprocs to 2d box so as to minimize perimeter per proc
-------------------------------------------------------------------------- */
-
-void Domain::procs2domain_2d()
-{
-  int ipx,ipy;
-  double boxx,boxy,surf;
-
-  if (user_procgrid[0] || user_procgrid[1] || user_procgrid[2]) {
-    if (user_procgrid[2] != 1)
-      error->all(FLERR,"App style proc count is not valid for 2d simulation");
-    procgrid[0] = user_procgrid[0];
-    procgrid[1] = user_procgrid[1];
-
-  } else {
-
-    // loop thru all possible factorizations of nprocs
-    // surf = perimeter of a proc sub-domain
-
-    double bestsurf = 2.0 * (xprd+yprd);
- 
-    ipx = 1;
-    while (ipx <= nprocs) {
-      if (nprocs % ipx == 0) {
-	ipy = nprocs/ipx;
-	boxx = xprd/ipx;
-	boxy = yprd/ipy;
-	surf = boxx + boxy;
-	if (surf < bestsurf) {
-	  bestsurf = surf;
-	  procgrid[0] = ipx;
-	  procgrid[1] = ipy;
-	}
-      }
-      ipx++;
-    }
-  }
-
-  procgrid[2] = 1;
-
-  myloc[0] = me % procgrid[0];
-  myloc[1] = me/procgrid[0];
-  myloc[2] = 0;
-
-  subxlo = boxxlo + myloc[0] * xprd/procgrid[0];
-  if (myloc[0] < procgrid[0]-1) 
-    subxhi = boxxlo + (myloc[0]+1) * xprd/procgrid[0];
-  else subxhi = boxxhi;
-
-  subylo = boxylo + myloc[1] * yprd/procgrid[1];
-  if (myloc[1] < procgrid[1]-1) 
-    subyhi = boxylo + (myloc[1]+1) * yprd/procgrid[1];
-  else subyhi = boxyhi;
-
-  subzlo = boxzlo;
-  subzhi = boxzhi;
-}
 
 /* ----------------------------------------------------------------------
    assign nprocs to 3d box so as to minimize surface area per proc
@@ -266,7 +191,8 @@ void Domain::procs2domain_3d()
     procgrid[1] = user_procgrid[1];
     procgrid[2] = user_procgrid[2];
 
-  } else {
+  } 
+  else {
 
     double bestsurf = 2.0 * (xprd*yprd + yprd*zprd + zprd*xprd);
   
@@ -276,29 +202,30 @@ void Domain::procs2domain_3d()
     ipx = 1;
     while (ipx <= nprocs) {
       if (nprocs % ipx == 0) {
-	nremain = nprocs/ipx;
-	ipy = 1;
-	while (ipy <= nremain) {
-	  if (nremain % ipy == 0) {
-	    ipz = nremain/ipy;
-	    boxx = xprd/ipx;
-	    boxy = yprd/ipy;
-	    boxz = zprd/ipz;
-	    surf = boxx*boxy + boxy*boxz + boxz*boxx;
-	    if (surf < bestsurf) {
-	      bestsurf = surf;
-	      procgrid[0] = ipx;
-	      procgrid[1] = ipy;
-	      procgrid[2] = ipz;
-	    }
-	  }
-	  ipy++;
-	}
+        nremain = nprocs/ipx;
+        ipy = 1;
+        while (ipy <= nremain) {
+          if (nremain % ipy == 0) {
+            ipz = nremain/ipy;
+            boxx = xprd/ipx;
+            boxy = yprd/ipy;
+            boxz = zprd/ipz;
+            surf = boxx*boxy + boxy*boxz + boxz*boxx;
+            if (surf < bestsurf) {
+              bestsurf = surf;
+              procgrid[0] = ipx;
+              procgrid[1] = ipy;
+              procgrid[2] = ipz;
+            }
+          }
+          ipy++;
+        }
       }
       ipx++;
     }
   }
 
+  // NOTE: This would be the place to account for NUMA if desired
   myloc[0] = me % procgrid[0];
   myloc[1] = (me/procgrid[0]) % procgrid[1];
   myloc[2] = me / (procgrid[0]*procgrid[1]);
@@ -317,6 +244,78 @@ void Domain::procs2domain_3d()
   if (myloc[2] < procgrid[2]-1) 
     subzhi = boxzlo + (myloc[2]+1) * zprd/procgrid[2];
   else subzhi = boxzhi;
+}
+
+/* ----------------------------------------------------------------------
+   assign nprocs to 2d grid so as to minimize interface area per proc for AM simulations
+------------------------------------------------------------------------- */
+
+void Domain::procs2domain_additive()
+{
+  int ipx,ipy,ipz,nremain;
+  double boxx,boxy,surf;
+
+  if (user_procgrid[0] || user_procgrid[1] || user_procgrid[2]) {
+    procgrid[0] = user_procgrid[0];
+    procgrid[1] = user_procgrid[1];
+    procgrid[2] = user_procgrid[2];
+
+  } 
+  else {
+    double bestsurf = 2.0 * (xprd*yprd + yprd*zprd + zprd*xprd);
+  
+    // loop thru all possible factorizations of nprocs
+    // surf = surface area of a proc sub-domain
+    ipz = 1;
+    procgrid[2] = ipz;
+        
+    ipx = 1;
+    while (ipx <= nprocs) {
+      if (nprocs % ipx == 0) {
+        ipy = nprocs/ipx;
+        boxx = xprd/ipx;
+        boxy = yprd/ipy;
+        surf = boxy + boxx;
+        if (surf < bestsurf) {
+           bestsurf = surf;
+           procgrid[0] = ipx;
+           procgrid[1] = ipy;
+        }
+      }
+      ipx++;
+    }
+  }
+
+  // NOTE: This would be the place to account for NUMA if desired
+//  if i%2==0:
+//        x = int(i/2)%8
+//        y = i/int(16)
+//    else:
+//        x = int(i/2)%8
+//        y = i/int(16)+4
+  
+  //myloc[0] = me % procgrid[0];
+  myloc[0] = (me/2) % procgrid[0];
+  if(me%2 == 0) {
+    myloc[1] = me/(procgrid[0]*2);
+  }
+  else {
+    myloc[1] = me/(procgrid[0]*2)+(procgrid[0]/2);
+  }
+  myloc[2] = 0;
+
+  subxlo = boxxlo + myloc[0] * xprd/procgrid[0];
+  if (myloc[0] < procgrid[0]-1) 
+    subxhi = boxxlo + (myloc[0]+1) * xprd/procgrid[0];
+  else subxhi = boxxhi;
+
+  subylo = boxylo + myloc[1] * yprd/procgrid[1];
+  if (myloc[1] < procgrid[1]-1) 
+    subyhi = boxylo + (myloc[1]+1) * yprd/procgrid[1];
+  else subyhi = boxyhi;
+
+  subzlo = boxzlo;
+  subzhi = boxzhi;
 }
 
 /* ----------------------------------------------------------------------

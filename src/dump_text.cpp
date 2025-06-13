@@ -18,7 +18,6 @@
 #include "dump_text.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "domain.h"
 #include "region.h"
 #include "memory.h"
@@ -259,18 +258,14 @@ int DumpText::count()
 	if (latticeflag)
 	  for (i = 0; i < nlocal; i++)
 	    dchoose[i] = applattice->site_energy(i);
-	else
-	  for (i = 0; i < nlocal; i++)
-	    dchoose[i] = appoff->site_energy(i);
+
 	ptr = dchoose;
 	nstride = 1;
       } else if (thresh_array[ithresh] == PROPENSITY) {
 	if (latticeflag)
 	  for (i = 0; i < nlocal; i++)
 	    dchoose[i] = applattice->site_propensity(i);
-	else
-	  for (i = 0; i < nlocal; i++)
-	    dchoose[i] = appoff->site_propensity(i);
+
 	ptr = dchoose;
 	nstride = 1;
       } else if (thresh_array[ithresh] == IARRAY) {
@@ -407,11 +402,11 @@ void DumpText::write_text(int n, double *buf)
   for (i = 0; i < n; i++) {
     for (j = 0; j < size_one; j++) {
       if (vtype[j] == INT)
-	fprintf(fp,vformat[j],static_cast<int> (buf[m]));
+	      fprintf(fp,vformat[j],static_cast<int> (buf[m]));
       else if (vtype[j] == DOUBLE)
-	fprintf(fp,vformat[j],buf[m]);
+	      fprintf(fp,vformat[j],buf[m]);
       else if (vtype[j] == TAGINT) 
-	fprintf(fp,vformat[j],static_cast<tagint> (buf[m]));
+	      fprintf(fp,vformat[j],static_cast<tagint> (buf[m]));
       m++;
     }
     fprintf(fp,"\n");
@@ -670,12 +665,7 @@ void DumpText::pack_energy(int n)
       buf[n] = applattice->site_energy(clist[i]);
       n += size_one;
     }
-  } else {
-    for (int i = 0; i < nchoose; i++) {
-      buf[n] = appoff->site_energy(clist[i]);
-      n += size_one;
-    }
-  }
+  } 
 }
 
 /* ---------------------------------------------------------------------- */
@@ -687,12 +677,7 @@ void DumpText::pack_propensity(int n)
       buf[n] = applattice->site_propensity(clist[i]);
       n += size_one;
     }
-  } else {
-    for (int i = 0; i < nchoose; i++) {
-      buf[n] = appoff->site_propensity(clist[i]);
-      n += size_one;
-    }
-  }
+  } 
 }
 
 /* ---------------------------------------------------------------------- */

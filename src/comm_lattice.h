@@ -38,8 +38,10 @@ class CommLattice : protected Pointers {
     int *scount;                   // size of each send message in sites
     int *smax;                     // max size of each send message in sites
     int **sindex;                  // list of my lattice indices for each send
-    int *sibuf;                    // biggest int send message
-    double *sdbuf;                 // biggest double send message
+    int **sibuf;                    // each int send message
+    double **sdbuf;                 // each double send message
+//    int *sibuf;                    // biggest int send message
+//    double *sdbuf;                 // biggest double send message
     int *rproc;                    // proc for each recv message
     int *rcount;                   // size of each recv message in sites
     int *rmax;                     // max size of each recv message in sites
@@ -47,6 +49,7 @@ class CommLattice : protected Pointers {
     int **ribuf;                   // each int recv message
     double **rdbuf;                // each double recv message
     MPI_Request *request;          // MPI datums for each recv message
+    MPI_Request *srequest;          // MPI datums for each send message
     MPI_Status *status;
   };
 

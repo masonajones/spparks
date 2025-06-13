@@ -141,8 +141,9 @@ double Output::setup(double time, int memflag)
 double Output::compute(double time, int done)
 {
   // dump output
-
+  //fprintf(screen,"0 ");
   double dump_time = app->stoptime;
+  //fprintf(screen,"1 ");
   for (int i = 0; i < ndump; i++) {
     if (time >= dumplist[i]->next_time - dumplist[i]->tolerance) {
       dumplist[i]->write(time);
@@ -154,28 +155,27 @@ double Output::compute(double time, int done)
       dump_time = MIN(dump_time,dumplist[i]->next_time);
     } else dump_time = MIN(dump_time,dumplist[i]->next_time);
   }
+  //fprintf(screen,"2 ");
 
   // sflag = 1 if stats output needed
 
   int sflag = 0;
   if (time >= stats_time || done) sflag = 1;
-  
+  //fprintf(screen,"3 ");
   // diagnostic output, which may be driven by stats output
   
   double diag_time = app->stoptime;
+  //fprintf(screen,"4 ");
   for (int i = 0; i < ndiag; i++) {
     if (diaglist[i]->stats_flag) {
       if (sflag) diaglist[i]->compute();
     } else if (time >= diaglist[i]->next_time) {
       diaglist[i]->compute();
-      diaglist[i]->next_time = 
-	next_time(time,diaglist[i]->logfreq,diaglist[i]->delta,
-		  diaglist[i]->nrepeat,diaglist[i]->scale,
-                  diaglist[i]->delay);
+      diaglist[i]->next_time = next_time(time,diaglist[i]->logfreq,diaglist[i]->delta, diaglist[i]->nrepeat,diaglist[i]->scale, diaglist[i]->delay);
       diag_time = MIN(diag_time,diaglist[i]->next_time);
     } else diag_time = MIN(diag_time,diaglist[i]->next_time);
   }
-  
+  //fprintf(screen,"5 ");
   // stats output, after diagnostics compute any needed quantities
 
   if (sflag) {
@@ -187,14 +187,17 @@ double Output::compute(double time, int done)
       stats_time -= stats_tolerance;
     }
   }
-
+  //fprintf(screen,"6 ");
   // tnext = next output time for anything
 
   double tnext = app->stoptime;
+  //fprintf(screen,"7 ");
   tnext = MIN(tnext,dump_time);
   tnext = MIN(tnext,diag_time);
   tnext = MIN(tnext,stats_time);
+  //fprintf(screen,"8\n");
   return tnext;
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -446,10 +449,10 @@ void Output::memory_usage()
 
   if (me == 0) {
     if (screen) {
-      fprintf(screen,"Running with %d-bit site IDs\n",8*sizeof(tagint));
+      fprintf(screen,"Running with %d-bit site IDs\n",(int)(8*sizeof(tagint)));
       fprintf(screen,"Memory usage per processor = %g Mbytes\n",mbytes);
     } if (logfile) {
-      fprintf(logfile,"Running with %d-bit site IDs\n",8*sizeof(tagint));
+      fprintf(logfile,"Running with %d-bit site IDs\n",(int)(8*sizeof(tagint)));
       fprintf(logfile,"Memory usage per processor = %g Mbytes\n",mbytes);
     }
   }

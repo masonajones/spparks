@@ -19,6 +19,8 @@
 #include "region.h"
 #include "error.h"
 
+#define ADDITIVE = 1
+
 using namespace SPPARKS_NS;
 
 /* ---------------------------------------------------------------------- */
@@ -37,12 +39,9 @@ void CreateBox::command(int narg, char **arg)
     error->all(FLERR,"Cannot create box with this application style");
   if (domain->box_exist) 
     error->all(FLERR,"Cannot create box after simulation box is defined");
-  if (domain->dimension == 2 && domain->zperiodic == 0)
-    error->all(FLERR,"Cannot run 2d simulation with nonperiodic Z dimension");
-  if (domain->dimension == 1 && 
-      (domain->yperiodic == 0 || domain->zperiodic == 0))
-    error->all(FLERR,"Cannot run 1d simulation with nonperiodic Y or Z dimension");
-
+  if (domain->dimension < 3)
+    error->all(FLERR,"Only 3D simulations allowed");
+  
   // region check
 
   int iregion = domain->find_region(arg[0]);
@@ -71,11 +70,11 @@ void CreateBox::command(int narg, char **arg)
 			   domain->boxxlo,domain->boxylo,domain->boxzlo,
 			   domain->boxxhi,domain->boxyhi,domain->boxzhi);
     }
-
-  if (domain->dimension == 1) domain->procs2domain_1d();
-  if (domain->dimension == 2) domain->procs2domain_2d();
-  if (domain->dimension == 3) domain->procs2domain_3d();
-  
+  #ifdef ADDITIVE
+    if (domain->dimension == 3) domain->procs2domain_additive();
+  #else
+    if (domain->dimension == 3) domain->procs2domain_3d();
+  #endif
   if (domain->me == 0)
     if (screen) {
       if (screen) fprintf(screen,"  %d by %d by %d processor grid\n",

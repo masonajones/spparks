@@ -19,9 +19,7 @@
 #include "library.h"
 #include "app.h"
 #include "app_lattice.h"
-#include "app_off_lattice.h"
 #include "comm_lattice.h"
-#include "comm_off_lattice.h"
 #include "input.h"
 
 using namespace SPPARKS_NS;
@@ -121,21 +119,16 @@ double spparks_energy(void *ptr)
   else latticeflag = 0;
 
   AppLattice *applattice;
-  AppOffLattice *appoff;
 
   if (latticeflag) applattice = (AppLattice *) spk->app;
-  else appoff = (AppOffLattice *) spk->app;
 
   if (latticeflag) applattice->comm->all();
-  else appoff->comm->all();
 
   int nlocal = spk->app->nlocal;
 
   double etmp = 0.0;
   if (latticeflag)
     for (int i = 0; i < nlocal; i++) etmp += applattice->site_energy(i);
-  else
-    for (int i = 0; i < nlocal; i++) etmp += appoff->site_energy(i);
 
   double energy;
   MPI_Allreduce(&etmp,&energy,1,MPI_DOUBLE,MPI_SUM,spk->world);

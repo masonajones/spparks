@@ -22,7 +22,6 @@
 #include "app.h"
 #include "solve.h"
 #include "domain.h"
-#include "potential.h"
 #include "random_mars.h"
 #include "timer.h"
 #include "output.h"
@@ -53,42 +52,48 @@ SPPARKS::SPPARKS(int narg, char **arg, MPI_Comm communicator)
   while (iarg < narg) {
     if (strcmp(arg[iarg],"-partition") == 0) {
       if (iarg+1 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       iarg++;
       while (iarg < narg && arg[iarg][0] != '-') {
-	universe->add_world(arg[iarg]);
-	iarg++;
+        universe->add_world(arg[iarg]);
+        iarg++;
       }
-    } else if (strcmp(arg[iarg],"-in") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"-in") == 0) {
       if (iarg+2 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       inflag = iarg + 1;
       iarg += 2;
-    } else if (strcmp(arg[iarg],"-screen") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"-screen") == 0) {
       if (iarg+2 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       screenflag = iarg + 1;
       iarg += 2;
-    } else if (strcmp(arg[iarg],"-log") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"-log") == 0) {
       if (iarg+2 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       logflag = iarg + 1;
       iarg += 2;
-    } else if (strcmp(arg[iarg],"-var") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"-var") == 0) {
       if (iarg+3 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       iarg += 3;
-    } else if (strcmp(arg[iarg],"-echo") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"-echo") == 0) {
       if (iarg+2 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       iarg += 2;
-    } else if (strcmp(arg[iarg],"-help") == 0 || 
-	       strcmp(arg[iarg],"-h") == 0) {
+    } 
+    else if (strcmp(arg[iarg],"-help") == 0 || strcmp(arg[iarg],"-h") == 0) {
       if (iarg+1 > narg) 
-	error->universe_all(FLERR,"Invalid command-line argument");
+	      error->universe_all(FLERR,"Invalid command-line argument");
       helpflag = 1;
       iarg += 1;
-    } else error->universe_all(FLERR,"Invalid command-line argument");
+    } 
+    else error->universe_all(FLERR,"Invalid command-line argument");
   }
 
   // if procs was not a command-line switch, universe is one world w/ all procs
@@ -313,7 +318,7 @@ void SPPARKS::create()
   app = NULL;
   solve = NULL;
   domain = new Domain(this);
-  potential = new Potential(this);
+
   ranmaster = new RanMars(this);
   output = new Output(this);
   timer = new Timer(this);
@@ -329,7 +334,7 @@ void SPPARKS::destroy()
   delete app;
   delete solve;
   delete domain;
-  delete potential;
+
   delete ranmaster;
   delete output;
   delete timer;
@@ -369,13 +374,6 @@ void SPPARKS::print_styles()
 #define DumpStyle(key,Class) printf(" %s",#key);
 #include "style_dump.h"
 #undef DUMP_CLASS
-  printf("\n\n");
-
-  printf("Pair styles:");
-#define PAIR_CLASS
-#define PairStyle(key,Class) printf(" %s",#key);
-#include "style_pair.h"
-#undef PAIR_CLASS
   printf("\n\n");
 
   printf("Region styles:");

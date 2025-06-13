@@ -22,8 +22,6 @@
 #include "app.h"
 #include "solve.h"
 #include "domain.h"
-#include "potential.h"
-#include "pair.h"
 #include "output.h"
 #include "random_mars.h"
 #include "error.h"
@@ -410,8 +408,6 @@ int Input::execute_command()
   else if (!strcmp(command,"dump_modify")) dump_modify();
   else if (!strcmp(command,"dump_one")) dump_one();
   else if (!strcmp(command,"lattice")) lattice();
-  else if (!strcmp(command,"pair_coeff")) pair_coeff();
-  else if (!strcmp(command,"pair_style")) pair_style();
   else if (!strcmp(command,"processors")) processors();
   else if (!strcmp(command,"region")) region();
   else if (!strcmp(command,"reset_time")) reset_time();
@@ -741,24 +737,6 @@ void Input::lattice()
 }
 
 /* ---------------------------------------------------------------------- */
-
-void Input::pair_coeff()
-{
-  if (app == NULL) error->all(FLERR,"Pair_coeff command before app_style set");
-  if (potential->pair == NULL) 
-    error->all(FLERR,"Pair_coeff command before pair_style is defined");
-  potential->pair->coeff(narg,arg);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void Input::pair_style()
-{
-  if (app == NULL) error->all(FLERR,"Pair_style command before app_style set");
-  if (narg < 1) error->all(FLERR,"Illegal pair_style command");
-  potential->create_pair(arg[0]);
-  potential->pair->settings(narg-1,&arg[1]);
-}
 
 /* ---------------------------------------------------------------------- */
 
