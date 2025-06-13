@@ -315,8 +315,10 @@ void AppAdditiveThermal::init_app()
   const double sqrt3 = 1.7320508075689; //std::sqrt(3);//
   sites = new int[1 + maxneigh];
   unique = new int[1 + maxneigh];
+  // Instead of nucleation flags we check the spin # against the proportion of nspins. Cuts down on cache misses.
+  // NOTE: this makes visualization weird
   //nucleationFlags = new bool[nspins];
-  nucleationTemps = new double[nspins];
+  nucleationTemps = new double[nspins]; // We can make these smaller to match the number of spins that are allowed to nucleate
 	nucleationSizes = new double[nspins];
   
   dt_sweep = 1.0/maxneigh;
@@ -397,6 +399,7 @@ void AppAdditiveThermal::init_app()
   //} neighDist
   
   // Binary encoding of neighdist_ind:
+  // Note: not very conducive to real uses
   // 8 bytes (long) + 24 bytes of neighdists = 32 bytes -> half a cache line (not much more useful unless we have something to pack it with)
   // 21210121210122101212101212
   // 0b1001100100011001100100011010010001100110010001100110
@@ -654,16 +657,7 @@ void AppAdditiveThermal::local_finitedifference()
  ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-At each timestep, we will go through and calculate the temperature field from
-the total distance traveled. We need to account for negative numbers, and 
-beginning/end conditions. At any point if the value is negative, we do everything
-but then just throw the mobility values away.
-We always measure local distance from the point with the smallest index.
-We're currently starting from the beginning of the array everytime we search for our location, which is dumb.
-What would be better is to either use a linked list/stack where we can remove
-the index after using it, or keep track of the index of the current start of our
-interval and go from there.
-We should be going a constant dt in time between each step.
+Determine Laser loacation and parameters from path file data based on current time index.
  ------------------------------------------------------------------------- */
 void AppAdditiveThermal::position_finder_in() {
   if (p_scan_array[path_index] > 0.0) {
