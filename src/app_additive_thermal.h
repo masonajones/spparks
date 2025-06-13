@@ -30,15 +30,25 @@ class AppAdditiveThermal : public AppPotts {
   AppAdditiveThermal(class SPPARKS *, int, char **);
 	virtual void grow_app();
 	virtual void init_app();
-	virtual void site_event_rejection(int, class RandomPark *);
+	
   virtual double site_energy(int, int);
 //  virtual void update_site_energy(int, int)
+
 	virtual double compute_mobility(int);//, class RandomPark *);
-	virtual void nucleation_particle_flipper(int, int,class RandomPark *);
+ 
+// virtual void site_event_rejection(int, class RandomPark *);
+//	virtual void nucleation_particle_flipper(int, int,class RandomPark *);
+// 	virtual void mushy_phase(int, class RandomPark *);
+//	virtual void nucleation_spins(class RandomPark *);
+ 
+  virtual void site_event_rejection(int, class RandomFast *);
+ 	virtual void nucleation_particle_flipper(int, int,class RandomFast *);
+ 	virtual void mushy_phase(int, class RandomFast *);
+	virtual void nucleation_spins(class RandomFast *);
+ 
   virtual void input_app(char *, int, char **);
 	virtual void app_update();
-	virtual void mushy_phase(int, class RandomPark *);
-	virtual void nucleation_spins(class RandomPark *);
+
 	virtual void nucleation_init();
 	virtual void iterate_rejection(double);
 	virtual double compute_tempMax();

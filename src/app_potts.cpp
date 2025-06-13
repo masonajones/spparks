@@ -16,7 +16,7 @@
 #include "stdlib.h"
 #include "app_potts.h"
 #include "solve.h"
-#include "random_park.h"
+#include "random_fast.h"
 #include "error.h"
 
 using namespace SPPARKS_NS;
@@ -105,7 +105,7 @@ double AppPotts::site_energy(int i)
    flip to random spin from 1 to nspins
 ------------------------------------------------------------------------- */
 
-void AppPotts::site_event_rejection(int i, RandomPark *random)
+void AppPotts::site_event_rejection(int i, RandomFast *random)
 {
   int oldstate = spin[i];
   double einitial = site_energy(i);
@@ -189,7 +189,7 @@ double AppPotts::site_propensity(int i)
    choose and perform an event for site
 ------------------------------------------------------------------------- */
 
-void AppPotts::site_event(int i, RandomPark *random)
+void AppPotts::site_event(int i, RandomFast *random)
 {
   int j,m,value;
 

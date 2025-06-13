@@ -22,7 +22,8 @@
 #include "domain.h"
 #include "lattice.h"
 #include "random_mars.h"
-#include "random_park.h"
+//#include "random_park.h"
+#include "random_fast.h"
 #include "cluster.h"
 #include "output.h"
 #include "timer.h"
@@ -269,7 +270,7 @@ void AppLattice::init()
   // if color/strict, initialize per-lattice site seeds
 
   if (ranapp == NULL) {
-    ranapp = new RandomPark(ranmaster->uniform());
+    ranapp = new RandomFast(ranmaster->uniform());
     double seed = ranmaster->uniform();
     ranapp->reset(seed,me,100);
   }
@@ -282,7 +283,7 @@ void AppLattice::init()
   }
 
   if (sweepflag == COLOR_STRICT && ranstrict == NULL) {
-    ranstrict = new RandomPark(ranmaster->uniform());
+    ranstrict = new RandomFast(ranmaster->uniform());
     double seed = ranmaster->uniform();
     memory->create(siteseeds,nlocal,"app:siteseeds");
     for (int i = 0; i < nlocal; i++) {

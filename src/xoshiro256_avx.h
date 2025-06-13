@@ -21,7 +21,7 @@ inline __m256i rotl(__m256i x, int k) {
 class Xoshiro256AVX2 {
 private:
     __m256i s0, s1, s2, s3;
-
+    
 public:
     // Initialize with a scalar seed
     Xoshiro256AVX2(uint64_t seed) {
@@ -56,6 +56,16 @@ public:
             (raw[1] >> 11) * (1.0 / (1ULL << 53)),
             (raw[0] >> 11) * (1.0 / (1ULL << 53))
         );
+    }
+    
+    void reset(uint64_t seed) {
+        uint64_t tmp[16];
+        for (int i = 0; i < 16; i++)
+            tmp[i] = splitmix64(seed);
+        s0 = _mm256_set_epi64x(tmp[3], tmp[2], tmp[1], tmp[0]);
+        s1 = _mm256_set_epi64x(tmp[7], tmp[6], tmp[5], tmp[4]);
+        s2 = _mm256_set_epi64x(tmp[11], tmp[10], tmp[9], tmp[8]);
+        s3 = _mm256_set_epi64x(tmp[15], tmp[14], tmp[13], tmp[12]);
     }
 
 };

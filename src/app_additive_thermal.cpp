@@ -21,7 +21,8 @@
 #include "string.h"
 #include "math.h"
 #include "app_additive_thermal.h"
-#include "random_park.h"
+//#include "random_park.h"
+#include "random_fast.h"
 #include "error.h"
 #include "memory.h"
 #include "comm_lattice.h"
@@ -934,7 +935,7 @@ void AppAdditiveThermal::path_file_update()
   //    Bottom line: Would need to test. Not sure of temp variable overhed.
   // keep if temp==0, but change to do nothing. Probably no chance of branch miss because always the same. Needed before Check 3.
 
-void AppAdditiveThermal::site_event_rejection(int i, RandomPark *random)
+void AppAdditiveThermal::site_event_rejection(int i, RandomFast *random)
 {
   int current_state = spin[i];
   double einitial = site_energy(i,current_state);
@@ -1028,7 +1029,7 @@ double AppAdditiveThermal::site_energy(int i, int test_spin)
    5. If our current site is solid, see if it should flip to a neighboring solid value (with
       mobility calculated from undercooling.)
 ------------------------------------------------------------------------- */
-void AppAdditiveThermal::mushy_phase(int i, RandomPark *random){
+void AppAdditiveThermal::mushy_phase(int i, RandomFast *random){
   	int nevent = 0;
   	int m,value;
     double Tcool = Tl - T[i];
@@ -1156,7 +1157,7 @@ void AppAdditiveThermal::mushy_phase(int i, RandomPark *random){
     Only nucleating one site at a time introduce lattice size dependency. Here we will
     use a user-defined nucleation particle size and flip neighboring sites until that size is met
 ------------------------------------------------------------------------- */
-void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomPark *random) {
+void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomFast *random) {
     
     //If one site is big enough to satisfy, skip evertyhing
     if(partRad <= 0) return;
@@ -1224,7 +1225,7 @@ void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomP
    than 1 (which we should avoid), allow all spins to nucleate. If not, call a random number
    between zero and one. If the number is less than the fraction, make true. If not, make false.
 ------------------------------------------------------------------------- */
-void AppAdditiveThermal::nucleation_spins(RandomPark *random) {
+void AppAdditiveThermal::nucleation_spins(RandomFast *random) {
     double nucleationFraction = dx * dx * dx * No;
     
     //Make all spins nucleation sites. Should avoid this.

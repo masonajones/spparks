@@ -69,9 +69,9 @@ class AppLattice : public App {
 
   virtual void grow_app() = 0;
   virtual double site_energy(int) = 0;
-  virtual void site_event_rejection(int, class RandomPark *) = 0;
+  virtual void site_event_rejection(int, class RandomFast *) = 0;
   virtual double site_propensity(int) = 0;
-  virtual void site_event(int, class RandomPark *) = 0;
+  virtual void site_event(int, class RandomFast *) = 0;
 
   // virtual functions, may be overridden by child class
 
@@ -112,8 +112,8 @@ class AppLattice : public App {
   int bothflag;                // 1 if both sectors and colors
   int app_update_only;         // 1 if skip KMC and rKMC updates
 
-  class RandomPark *ranapp;    // RN generator for KMC and rejection KMC
-  class RandomPark *ranstrict; // RN generator for per-site strict rKMC
+  class RandomFast *ranapp;    // RN generator for KMC and rejection KMC
+  class RandomFast *ranstrict; // RN generator for per-site strict rKMC
   int *siteseeds;              // per-site seeds for ransite
   int *sitelist;               // randomized list of site indices
 

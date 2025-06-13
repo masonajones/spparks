@@ -13,6 +13,8 @@
 
 #ifndef SPK_RANDOM_PARK_H
 #define SPK_RANDOM_PARK_H
+#include <vector>
+#include "xoshiro256pp_avx2.h"
 
 #include "spktype.h"
 
@@ -20,17 +22,25 @@ namespace SPPARKS_NS {
 
 class RandomPark {
  public:
-  int seed;
+  uint64_t seed;
 
   RandomPark(int);
   RandomPark(double);
   ~RandomPark() {}
+  
   void reset(double, int, int);
   void tagreset(double, tagint, int);
-  double uniform();
+  double uniform_slow();
   int irandom(int);
+  void init_bulkRand();
+  double uniform();
   tagint tagrandom(tagint);
   bigint bigrandom(bigint);
+  static constexpr int numRand = 4000; 
+  std::vector<double> bulkRand;             
+  int iter;
+   private:
+  Xoshiro256ppAVX2 prng;
 };
 
 }
