@@ -21,7 +21,6 @@
 #include "string.h"
 #include "math.h"
 #include "app_additive_thermal.h"
-//#include "random_park.h"
 #include "random_fast.h"
 #include "error.h"
 #include "memory.h"
@@ -41,6 +40,20 @@ enum material_state {
   POWDER = 1,
   MOLTEN = 2,
   SOLID = 3
+};
+
+// Not used yet
+// Intended to make it easier to initiate comms after Comm -> selected is implemented
+enum array_names {
+  SPIN = 0,
+  ACTIVEFLAG = 1,
+  MOBILITY = 0,
+
+  // Not sure how to handle these for comms, since we swap the pointers
+  TEMPERATURE = 1,
+  TEMPERATURE_OLD = 2,
+
+  SOLIDD = 3
 };
 
 
