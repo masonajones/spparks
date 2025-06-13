@@ -1,3 +1,10 @@
+An optimized version of the SPPARKS - Additive Thermal Implementation 
+by Rodgers et al. 
+This code has been modified in ways that break compatibility with the
+main SPPARKS branch.
+
+----------------------------------------------------------------------
+
 This is the SPPARKS (11 Nov 2009) software package.
 
 SPPARKS stands for Stochastic Parallel PARticle Kinetic Simulator.
