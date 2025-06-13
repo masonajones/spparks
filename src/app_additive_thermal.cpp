@@ -36,6 +36,12 @@
 using namespace SPPARKS_NS;
 using namespace MathConst;
 enum{RANDOM};
+enum material_state {
+  INACTIVE = 0,
+  POWDER = 1,
+  MOLTEN = 2,
+  SOLID = 3
+};
 
 
 /* ---------------------------------------------------------------------- */
@@ -311,11 +317,11 @@ void AppAdditiveThermal::init_app()
       //If we're above the substrate height, randomize the spins
       if(xyz[i][2] > substrate_height) {
           spin[i] = (int) (nspins*ranapp->uniform());
-          activeFlag[i] = 0;
+          activeFlag[i] = INACTIVE;
       }
       //If we're less than the value, set activeFlag to the "solid" condition
       else {
-          activeFlag[i] = 3;
+          activeFlag[i] = SOLID;
       }
   }
   comm->all();
@@ -797,7 +803,7 @@ void AppAdditiveThermal::app_update()
             __m256d T0_vec = _mm256_set1_pd(boundary_temp);
             //fprintf(screen, "alignment %i, shift by %i elements", (reinterpret_cast<uintptr_t>(&T[i_z2]) % 32), (int)(4-(i_z2 & 0b11)));
             int i = i_z2;
-            int check_alignment = 4-(i_z2 & 0b11);
+            int check_alignment = 4-(i_z2 & 0b11); // fast modulo with 4
             if(check_alignment) { // Pretty sure this doesn't need an if statement
               for(int j = 0; j < check_alignment; j++) {
                 T[i] = boundary_temp;
@@ -836,7 +842,7 @@ void AppAdditiveThermal::app_update()
             //fprintf(screen,"Local stop index %i\n",nlocal_zstop);
             break;
           }
-          activeFlag[i] = 1;
+          activeFlag[i] = POWDER;
       }
       new_layer=0;
       comm->all(); // only really need to comm activeFlag
@@ -849,7 +855,7 @@ void AppAdditiveThermal::app_update()
         site_event_finitedifference(i);
         if(T[i] > Tl) {
           tempMax = Tl;
-          if(activeFlag[i] != 2) {   
+          if(activeFlag[i] != MOLTEN) {   
             //Let's also update the active flag after each FD loop
             //This is also the place to handle nucleation and solidification front impingement
             //Go from solid to molten
@@ -858,11 +864,11 @@ void AppAdditiveThermal::app_update()
             spin[i] = (int) (nspins * ranapp->uniform());
             SolidD[i] = 0.0;
             MobilityOut[i] = 0;
-            activeFlag[i] = 2;
+            activeFlag[i] = MOLTEN;
           }
         }
         //If we're molten, call the mushy_phase function to figure out any phase change
-        else if (activeFlag[i] == 2) {
+        else if (activeFlag[i] == MOLTEN) {
             mushy_phase(i, ranapp);
             tempMax = MAX(tempMax, T[i]);
         }
@@ -1040,7 +1046,7 @@ void AppAdditiveThermal::mushy_phase(int i, RandomFast *random){
     //if(nucleationFlags[spin[i]]) {
     if(spin[i]<nucleationCutoff && Tcool >= nucleationTemps[spin[i]]) {// Not sure if this is actually faster, but it should be
         //Can and will nucleate
-        activeFlag[i] = 3;
+        activeFlag[i] = SOLID;
         //Don't let nucleated site disappear during smoothing
         SolidD[i] = -nsmooth-2;
         return;
@@ -1085,7 +1091,7 @@ void AppAdditiveThermal::mushy_phase(int i, RandomFast *random){
     int iran = (int) ((nevent-0.0000001)*random->uniform());
     //if (iran >= nevent) iran = nevent-1;
     spin[i] = unique[iran];
-    activeFlag[i] = 3;
+    activeFlag[i] = SOLID;
     SolidD[i] = -1;
     return;
 //    if(spin[i]<nucleationCutoff) {// Not sure if this is actually faster, but it should be
@@ -1379,7 +1385,7 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
         //which makes the integral of a constant function
         for(int i = i_z2; i < nlocal_zstop; i++) { //nlocal_zstop
           //if(xyz[i][2] > floor(z_meltspot)) break;
-          if(activeFlag[i] != 3) continue;
+          if(activeFlag[i] != SOLID) continue;
           //Also check if we're just solidified and should be "relaxed"
           if(SolidD[i] < 0 && SolidD[i] > -nsmooth -1)    {
             MobilityOut[i] = 1;
@@ -1412,7 +1418,7 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
       //True "mobMax" would be holding the max temp for the entire window
       double mobility_denom = 1/(mobMax * FDElapsed);
       for(int i = i_z2; i < nlocal_zstop; i++) { 
-        if(activeFlag[i] == 3) MobilityOut[i] = MobilityOut[i] * mobility_denom;
+        if(activeFlag[i] == SOLID) MobilityOut[i] = MobilityOut[i] * mobility_denom;
         //MobilityOut[i] = MobilityOut[i]/(mobMax * FDElapsed);
       }  	
 
@@ -1490,7 +1496,7 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
 double AppAdditiveThermal::compute_tempMax() {
 	tempMax = 0;
   for(int i = nlocal_zstop; i >= i_ztop; i--) { 
-      if(activeFlag[i] == 1) continue;
+      if(activeFlag[i] == POWDER) continue;
       //If max temp is above liquidus, just make it liquidus and return
       if(T[i] > Tl) {
             tempMax = Tl;
