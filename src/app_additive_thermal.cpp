@@ -377,17 +377,16 @@ void AppAdditiveThermal::init_app()
 	neighDist[24] = sqrt2 * dx;
 	neighDist[25] = sqrt3 * dx;
  
-  //struct {
+  // Playing around with methods to encode neighDist data in a more memory friendly way:
+  //struct { // 50 bytes -> fits on cache line
   //  const double neighdists [] = {dx, sqrt2*dx, sqrt3*dx};
   //  const uint8_t neighdist_ind [] = {2,1,2,1,0,1,2,1,2,1,0,1,2,2,1,0,1,2,1,2,1,0,1,2,1,2};
   //} neighDist
- 
+  
+  // Binary encoding of neighdist_ind:
+  // 8 bytes (long) + 24 bytes of neighdists = 32 bytes -> half a cache line (not much more useful unless we have something to pack it with)
   // 21210121210122101212101212
   // 0b1001100100011001100100011010010001100110010001100110
-
-  // neighDist[0] = dx;
-	// neighDist[1] = sqrt2 * dx;
-	// neighDist[2] = sqrt3 * dx;
 	
 	//Check that our timestep is short enough to capture solidification behavior
 	double max_front_vel = 0;
@@ -469,6 +468,7 @@ void AppAdditiveThermal::path_file()
   		// convertor >> scan_array[row * 5 + col];  	
       convertor >> scan_array[col];  		
   	}
+// Ensure Z height doesn't leave domain, trim path if it does. INTRODUCES BUG
 //    if(scan_array[2]>domain->boxzhi) {
 //      fprintf(screen,"Laser z height %f higher than domain boundary %f. Truncating scan path.", scan_array[2],domain->boxzhi);
 ////      x_scan_array[row] = 0.0;
@@ -486,7 +486,8 @@ void AppAdditiveThermal::path_file()
   }
   delete [] scan_array;
   in_file.close();
-  
+
+// Could scale Power here to cut down on repetitive calculations in main loop.
 //  for (int i = 0; i<line_count; i++) {
 //    p_scan_array[i] = p_scan_array[i]/prefactor_xydev;
 //  }
@@ -495,7 +496,7 @@ void AppAdditiveThermal::path_file()
 
 
 /* ----------------------------------------------------------------------
- perform finite difference on a single  site
+ perform finite difference on a single site
  ------------------------------------------------------------------------- */
 
 void AppAdditiveThermal::site_event_finitedifference(int i)
@@ -534,9 +535,9 @@ void AppAdditiveThermal::site_event_finitedifference(int i)
 
 
 /* ----------------------------------------------------------------------
- perform finite difference on the local domain
-
-
+ perform finite difference on the local domain, instead of site by site. WORK IN PROGRESS
+ ------------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
 void AppAdditiveThermal::local_finitedifference()
 {
     
@@ -747,8 +748,7 @@ void AppAdditiveThermal::app_update()
 {
     tempMax = 0.0;
     tempMaxAll = 0.0;
-    //assert(reinterpret_cast<uintptr_t>(&T) % 32 == 0);
-    //assert(reinterpret_cast<uintptr_t>(&T_old) % 32 == 0);
+
     //communicate all sites to make sure it's up-to-date when it starts
     timer->stamp();
     comm->all();
@@ -1044,7 +1044,7 @@ void AppAdditiveThermal::mushy_phase(int i, RandomFast *random){
     //Our site should always be molten and below Tl
     //Check if it's eligible to nucleate
     //if(nucleationFlags[spin[i]]) {
-    if(spin[i]<nucleationCutoff && Tcool >= nucleationTemps[spin[i]]) {// Not sure if this is actually faster, but it should be
+    if(spin[i]<nucleationCutoff && Tcool >= nucleationTemps[spin[i]]) {
         //Can and will nucleate
         activeFlag[i] = SOLID;
         //Don't let nucleated site disappear during smoothing
@@ -1052,111 +1052,34 @@ void AppAdditiveThermal::mushy_phase(int i, RandomFast *random){
         return;
     }
     
-//    double SolidD_temp = solid_front_coeffs[0];
-//    double CoolingFactor = Tcool;
-//    for(int k = 1; k < solid_front_length; k++) {
-//        SolidD_temp += solid_front_coeffs[k] * CoolingFactor;
-//        CoolingFactor *= Tcool;
-//    }
-//    SolidD[i] += SolidD_temp * time_step;
-    
-//    for(int k = 0; k < solid_front_length; k++) {
-//        SolidD[i] += solid_front_coeffs[k] * pow(Tcool, k) * time_step;
-//    }
-    
     int power = solid_front_length -1;
     for(int k = 0; k < solid_front_length; k++) {
         SolidD[i] += solid_front_coeffs[k] * pow(Tcool, power) * time_step;
         power--;
     }
-   
-    //Go through neighbor list and add them to possible switches
-//    for (int j = 0; j < numneigh[i]; j++) {
-//        if(neighDist[2] <= SolidD[i] && activeFlag[neighbor[i][j]] == 3) { // I think this is a bug, we should presumably check if any neighbors are close enough, not just if all neighbors are. Also this should be hoisted outside the loop.
-//            value = spin[neighbor[i][j]];
-//            if(neighDist[j] > SolidD[i]) continue;
-//            unique[nevent++] = value;										
-//        }
+// Attmept to make this slightly simpler:
+// Requires reversing order of coeffs. Introduces a bug.
+//    for(int k = 0; k < solid_front_length; k++) {
+//        SolidD[i] += solid_front_coeffs[k] * pow(Tcool, k) * time_step;
 //    }
+   
     if(neighDist[2] <= SolidD[i]) { 
       for (int j = 0; j < numneigh[i]; j++) {
-        if(activeFlag[neighbor[i][j]] == 3 ) { //&& neighDist[j] < SolidD[i]
-            unique[nevent++] = spin[neighbor[i][j]];	// I think this is also a bug, presumably we are supposed to check for uniqueness		
+        if(activeFlag[neighbor[i][j]] == 3 ) { //&& neighDist[j] < SolidD[i] // swap to this if not waiting for all neighbors to be close enough
+            unique[nevent++] = spin[neighbor[i][j]];	
         }
       }
     }
     
     //If no neighbor is eligible, return before changing anything. Will try next sweep.
     if (nevent == 0) return;
-    int iran = (int) ((nevent-0.0000001)*random->uniform());
+    int iran = (int) ((nevent-0.0000001)*random->uniform()); // Need to double check bounds of RNG to decide if this is necessary
     //if (iran >= nevent) iran = nevent-1;
     spin[i] = unique[iran];
     activeFlag[i] = SOLID;
     SolidD[i] = -1;
     return;
-//    if(spin[i]<nucleationCutoff) {// Not sure if this is actually faster, but it should be
-//        //Can and will nucleate
-//        if(Tcool >= nucleationTemps[spin[i]]){
-//            activeFlag[i] = 3;
-//            //Don't let nucleated site disappear during smoothing
-//            SolidD[i] = -nsmooth-2;
-//            return;
-//        }
-//    
-//        //Can nucleate, but won't yet. Allow to if the solidification front gets captured.
-//        else {
-//            //Add the distance of the front travel. This is for 304L. Need to multiply by timestep to get distance
-//            //Try doing this with an arbitrary array
-//            int power = solid_front_length -1;
-//            for(int k = 0; k < solid_front_length; k++) {
-//                SolidD[i] += solid_front_coeffs[k] * pow(Tcool, power) * time_step; // might be able to get away with a lower precision if we scale everything appropriately (not 100% sure on how the math works out, just conjecture)
-//                power--;
-//            }
-//            //Go through neighbor list and add them to possible switches
-//            for (int j = 0; j < numneigh[i]; j++) {
-//                if(neighDist[2] <= SolidD[i] && activeFlag[neighbor[i][j]] == 3) {
-//                    value = spin[neighbor[i][j]];
-//                    //Exclude gas or molten sites from the Potts neighbor tally
-//                    if(neighDist[j] > SolidD[i]) continue;
-//                    unique[nevent++] = value;										
-//                }
-//            }
-//            //If no neighbor is eligible, return before changing anything. Will try next sweep.
-//            if (nevent == 0) return;
-//            int iran = (int) (nevent*random->uniform());
-//            if (iran >= nevent) iran = nevent-1;
-//            spin[i] = unique[iran];
-//            activeFlag[i] = 3;
-//            SolidD[i] = -1;
-//            return;
-//        }
-//    }
-//    else {
-//        //Add the distance of the front travel. This is for 304L I think...
-//        int power = solid_front_length -1;
-//        for(int k = 0; k < solid_front_length; k++) {
-//            SolidD[i] += solid_front_coeffs[k] * pow(Tcool, power) * time_step;
-//            power--;
-//        }
-//       
-//        //Go through neighbor list and add them to possible switches
-//        for (int j = 0; j < numneigh[i]; j++) {
-//            if(neighDist[2] <= SolidD[i] && activeFlag[neighbor[i][j]] == 3) {
-//                value = spin[neighbor[i][j]];
-//                if(neighDist[j] > SolidD[i]) continue;
-//                unique[nevent++] = value;										
-//            }
-//        }
-//        
-//        //If no neighbor is eligible, return before changing anything. Will try next sweep.
-//        if (nevent == 0) return;
-//        int iran = (int) (nevent*random->uniform());
-//        if (iran >= nevent) iran = nevent-1;
-//        spin[i] = unique[iran];
-//        activeFlag[i] = 3;
-//        SolidD[i] = -1;
-//        return;
-//    }
+
 }
 
 /* ----------------------------------------------------------------------
