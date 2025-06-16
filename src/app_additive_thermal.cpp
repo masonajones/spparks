@@ -346,7 +346,7 @@ void AppAdditiveThermal::init_app()
   
 	//Initialize the nucleationFlags vector
 	if (domain->me==0) {
-		nucleation_spins(ranapp);    
+		nucleation_spins();    
 	}
 
 	//MPI_Bcast(nucleationFlags,nspins, MPI_C_BOOL,0,world);
@@ -426,9 +426,9 @@ void AppAdditiveThermal::init_app()
 ------------------------------------------------------------------------- */
 void AppAdditiveThermal::path_file()
 {
-   int x_max = 0;
-   int y_max = 0;
-   int z_max = 0;
+  //  int x_max = 0;
+  //  int y_max = 0;
+  //  int z_max = 0;
    
    std::string line;
    std::ifstream myfile(path_file_name);
@@ -446,7 +446,7 @@ void AppAdditiveThermal::path_file()
   // new lines will be skipped unless we stop it from happening:    
   myfile.unsetf(std::ios_base::skipws);
 
-  int aNumOfLines = 0;
+  // int aNumOfLines = 0;
 
   std::string aLineStr;
   while (getline(myfile, aLineStr))
@@ -1040,7 +1040,7 @@ double AppAdditiveThermal::site_energy(int i, int test_spin)
 ------------------------------------------------------------------------- */
 void AppAdditiveThermal::mushy_phase(int i, RandomFast *random){
   	int nevent = 0;
-  	int m,value;
+  	// int m,value;
     double Tcool = Tl - T[i];
      //For default settings, SolidD[i] =+ (1.091e-5 * pow(Tcool, 3) - 2.034e-4 * pow(Tcool, 2) + 2.74e-3*Tcool + 1.151e-4) * time_step;
        
@@ -1122,6 +1122,9 @@ void AppAdditiveThermal::nucleation_particle_flipper(int i, int partRad, RandomF
                 activeFlag[neighid] = 3;
                 SolidD[neighid] = -nsmooth -3;
                 flipped++;
+                if(flipped==nSites){ // I think this fixes it...
+                  return;
+                }
             }
         }
     }
@@ -1177,12 +1180,13 @@ void AppAdditiveThermal::nucleation_init() {
     std::normal_distribution<> dist_S{sizeNorm,sizeSig};
     std::random_device rd{};
     std::mt19937 gen{rd()};
-    
+    //static const double div_dxcubed = 1/pow(dx,3);
     //Randomly assign a temperature to every spin
     for(int i = 0; i < nspins; i++) {
     //for(int i = 0; i < nucleationCutoff; i++) {
         nucleationTemps[i] = dist_T(gen);
         nucleationSizes[i] = dist_S(gen);
+        //nucleationSizes[i] = fmin(26,dist_S(gen)*div_dxcubed);
     }
 }
 
@@ -1196,7 +1200,7 @@ void AppAdditiveThermal::nucleation_init() {
 
 void AppAdditiveThermal::iterate_rejection(double stoptime)
 {
-  int i,icolor,nselect,nrange,jset, nMC;
+  int i,icolor,nselect,nrange,jset;//, nMC;
   int *site2i;
   //double tempMax;
   //double tempMaxAll;
@@ -1206,6 +1210,7 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
   double nucVolume;
   double mobMax = 0;
   double* pointer_swap;
+  double tempMax_prev = 0;
   
   static const double div_dxcubed = 1/pow(dx,3);
   
@@ -1218,7 +1223,7 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
   if (bothflag) nset_loop = nsector;
 
   int done = 0;
-  nMC = 1;
+  //nMC = 1;
   
   for(int i = 0; i < nlocal; i++) {
     MobilityOut[i] = 0;
@@ -1269,6 +1274,8 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
         T_old = T;
         T = pointer_swap;
 
+        tempMax_prev = tempMaxAll;
+
         //Update temperatures and phases, calculate tempMaxAll
         app_update();
 
@@ -1276,8 +1283,9 @@ void AppAdditiveThermal::iterate_rejection(double stoptime)
         //Only update dtMC if it is smaller (higher temperature)
         //Basing MC calculation off of the highest temp observed in time_step
         // this can technically be reduced by computing the mob max to test with, then using inverse to caclulate dtMC if true
+        if ((tempMax_prev < tempMaxAll) | (mobMax < 1e-8)) {
         double dtMC_test = compute_timeMin(tempMaxAll);
-        if (dtMC > dtMC_test || mobMax < 1e-8) {
+        //if (dtMC > dtMC_test || mobMax < 1e-8) {
           dtMC = dtMC_test;
           //If new mobMax is larger, use it. This is tested by the enclosing if statement
           mobMax = exp(-Q/(R*tempMaxAll));

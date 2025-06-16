@@ -11,6 +11,10 @@
    See the README file in the top-level SPPARKS directory.
 ------------------------------------------------------------------------- */
 #define AVX2
+// #ifdef __AVX2__
+//   #define AVX2
+// #endif
+
 #include "spktype.h"
 #include "math.h"
 #include "random_fast.h"
@@ -35,6 +39,7 @@ using namespace SPPARKS_NS;
 
 #endif
 
+#ifdef AVX2
 /* ---------------------------------------------------------------------- 
    Buffered Xoshiro256 RNG
    Falls back to Park if AVX2 not enabled, but maintains buffer
@@ -57,11 +62,25 @@ RandomFast::RandomFast(double rseed) : seed(static_cast<uint64_t> (rseed*IM)), b
   //seed = static_cast<int> (rseed*IM);
   if (seed == 0) seed = 1;
 }
+#else
+// Could probably just make prng RandomPark when AVX is disabled so that I don't need this
+RandomFast::RandomFast(int iseed) : seed(static_cast<uint64_t>(iseed)), bulkRand(numRand), iter(numRand+1)
+{
+  static_assert(numRand%4 == 0, "RandomFast: Buffer size (numRand) must be multiple of 4 when AVX2 is enabled");
+  //seed = iseed;
+}
 
-// RandomFast::~RandomFast() 
-// {
+/* ---------------------------------------------------------------------- 
+   set seed to positive int
+   assume 0.0 <= rseed < 1.0
+------------------------------------------------------------------------ */
 
-// }
+RandomFast::RandomFast(double rseed) : seed(static_cast<uint64_t> (rseed*IM)), bulkRand(numRand), iter(numRand+1)
+{
+  //seed = static_cast<int> (rseed*IM);
+  if (seed == 0) seed = 1;
+}
+#endif
 
 
 /* ---------------------------------------------------------------------- 
@@ -75,6 +94,7 @@ RandomFast::RandomFast(double rseed) : seed(static_cast<uint64_t> (rseed*IM)), b
 // Xoshiro RNG uses internal state variables, need to set them differently
 void RandomFast::reset(double rseed, int offset, int warmup)
 {
+  //fprintf(screen,"using AVX2 RNG\n");
   seed = static_cast<int> (fmod(rseed*IM+offset,IM));
   if (seed < 0) seed = -seed;
   if (seed == 0) seed = 1;
@@ -145,7 +165,7 @@ double RandomFast::uniform()
 }
 
 /* ----------------------------------------------------------------------
-   M values RN between 1 and N inclusive
+   Create a buffer of M uniform RN values
 ------------------------------------------------------------------------- */
 #ifdef AVX2
 void RandomFast::init_bulkRand()
@@ -174,7 +194,7 @@ double RandomFast::uniform_slow()
 }
 
 /* ----------------------------------------------------------------------
-   M values RN between 1 and N inclusive
+   Create a buffer of M uniform RN values
 ------------------------------------------------------------------------- */
 
 void RandomFast::init_bulkRand()

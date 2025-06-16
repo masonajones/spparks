@@ -92,6 +92,8 @@ class Memory : protected Pointers {
     void destroy(TYPE *array) 
     {
       sfree(array);
+      array = NULL;
+
     }
 
 /* ----------------------------------------------------------------------
@@ -416,7 +418,7 @@ class Memory : protected Pointers {
       array = (TYPE ****) smalloc(nbytes,name);
       
       int i,j,k;
-      bigint m1,m2,m3;
+      bigint m1,m2;//,m3;
       bigint n = 0;
       for (i = 0; i < n1; i++) {
 	m2 = ((bigint) i) * n2;

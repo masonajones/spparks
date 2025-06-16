@@ -19,6 +19,7 @@
 #include <vector>
 
 #ifdef AVX2
+//#ifdef __AVX2__
 #include "xoshiro256_avx.h"
 
 namespace SPPARKS_NS {
@@ -38,10 +39,10 @@ class RandomFast {
   double uniform();
   tagint tagrandom(tagint);
   bigint bigrandom(bigint);
-  static constexpr int numRand = 4000; 
-  std::vector<double> bulkRand;             
-  
+
  private:
+   static constexpr int numRand = 8000; 
+   std::vector<double> bulkRand;    
    int iter;
    Xoshiro256AVX2 prng;
 };
@@ -67,10 +68,10 @@ class RandomFast {
   double uniform();
   tagint tagrandom(tagint);
   bigint bigrandom(bigint);
-  static constexpr int numRand = 4000; 
-  std::vector<double> bulkRand;             
-  
+              
  private:
+   static constexpr int numRand = 4000; 
+   std::vector<double> bulkRand; 
    int iter;
    double uniform_slow();
 

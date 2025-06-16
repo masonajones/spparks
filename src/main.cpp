@@ -10,7 +10,7 @@
 
    See the README file in the top-level SPPARKS directory.
 ------------------------------------------------------------------------- */
-
+#include <iostream>
 #include "mpi.h"
 #include "spparks.h"
 #include "input.h"
@@ -23,11 +23,14 @@ using namespace SPPARKS_NS;
 
 int main(int argc, char **argv)
 {
+  std::cout << "Initializing MPI";
   MPI_Init(&argc,&argv);
-
+  std::cout << "Initializing SPPARKS";
   SPPARKS *spk = new SPPARKS(argc,argv,MPI_COMM_WORLD);
+  std::cout << "SPPARKS inputs";
   spk->input->file();
+  std::cout << "Done";
   delete spk;
-
+  std::cout << "Finalizing MPI";
   MPI_Finalize();
 }

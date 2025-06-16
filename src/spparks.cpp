@@ -37,9 +37,13 @@ using namespace SPPARKS_NS;
 
 SPPARKS::SPPARKS(int narg, char **arg, MPI_Comm communicator)
 {
+  fprintf(stderr,"defining error");
   error = new Error(this);
+  fprintf(stderr,"done defining error");
   memory = new Memory(this);
+  fprintf(stderr,"done defining memory");
   universe = new Universe(this,communicator);
+  fprintf(stderr,"done defining universe");
 
   // parse input switches
 
@@ -331,7 +335,7 @@ void SPPARKS::create()
 
 void SPPARKS::destroy()
 {
-  delete app;
+  // delete app; // Commenting this out shouldn't fix anything but it does...
   delete solve;
   delete domain;
 

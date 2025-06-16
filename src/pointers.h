@@ -57,10 +57,10 @@ public:
   
  protected:
   SPPARKS *spk;
+  Input *&input;
   Memory *&memory;
   Error *&error;
   Universe *&universe;
-  Input *&input;
 
   App *&app;
   Solve *&solve;

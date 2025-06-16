@@ -30,8 +30,10 @@ class AppAdditiveThermal : public AppPotts {
   AppAdditiveThermal(class SPPARKS *, int, char **);
 	virtual void grow_app();
 	virtual void init_app();
-	
-  virtual double site_energy(int, int);
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Woverloaded-virtual"
+  	virtual double site_energy(int, int);
+	#pragma clang diagnostic pop
 //  virtual void update_site_energy(int, int)
 
 	virtual double compute_mobility(int);//, class RandomPark *);
@@ -47,7 +49,10 @@ class AppAdditiveThermal : public AppPotts {
 	virtual void nucleation_spins();
  
   virtual void input_app(char *, int, char **);
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Woverloaded-virtual"
 	virtual void app_update();
+	#pragma clang diagnostic pop
 
 	virtual void nucleation_init();
 	virtual void iterate_rejection(double);

@@ -114,18 +114,19 @@ void CreateSites::command(int narg, char **arg)
       if (valueflag == DUMMY) 
 	      error->all(FLERR,"Must use value option before basis option "
 		    "in create_sites command");
-      int ilo,ihi;
+      // int ilo,ihi;
       if (nbasis == 0) 
 	      error->all(FLERR,"Cannot use create_sites basis with random lattice");
-      int count = 0;
-      for (int i = ilo; i <= ihi; i++) {
-        basisflag[i] = 1;
-        if (valueflag == IARRAY) basis_ivalue[i] = atoi(arg[iarg+2]);
-        else if (valueflag == DARRAY) basis_dvalue[i] = atof(arg[iarg+2]);
-        count++;
-      }
-      if (count == 0) error->all(FLERR,"Illegal create_sites command");
-      iarg += 3;
+      // int count = 0;
+      error->all(FLERR,"Create sites basis not properly implemented");
+      // for (int i = ilo; i <= ihi; i++) {
+      //   basisflag[i] = 1;
+      //   if (valueflag == IARRAY) basis_ivalue[i] = atoi(arg[iarg+2]);
+      //   else if (valueflag == DARRAY) basis_dvalue[i] = atof(arg[iarg+2]);
+      //   count++;
+      // }
+      // if (count == 0) error->all(FLERR,"Illegal create_sites command");
+      // iarg += 3;
     } else error->all(FLERR,"Illegal create_sites command");
   }
 
@@ -140,7 +141,7 @@ void CreateSites::command(int narg, char **arg)
 
   app->sites_exist = 1;
 
-  int dimension = domain->dimension;
+  //int dimension = domain->dimension;
   latstyle = domain->lattice->style;
 
   applattice = (AppLattice *) app;
@@ -169,7 +170,7 @@ void CreateSites::command(int narg, char **arg)
 
 void CreateSites::structured_lattice()
 {
-  int dimension = domain->dimension;
+  // int dimension = domain->dimension;
   int nonperiodic = domain->nonperiodic;
   int xperiodic = domain->xperiodic;
   int yperiodic = domain->yperiodic;
@@ -302,7 +303,8 @@ void CreateSites::structured_lattice()
   //   box is nonperiodic, lattice is not simple
 
   int i,j,k,m,nlocal;
-  tagint n,gid,ii,jj,kk;
+  // tagint n,gid,ii,jj,kk;
+  tagint n,gid;
   double x,y,z;
 
   int maxlocal = 0;
@@ -484,7 +486,7 @@ void CreateSites::structured_connectivity()
   tagint gid;
   double xneigh,yneigh,zneigh;
 
-  int dimension = domain->dimension;
+  // int dimension = domain->dimension;
   int nonperiodic = domain->nonperiodic;
   int thermally_insulated = domain->therminsulated;
   int xperiodic = domain->xperiodic;
